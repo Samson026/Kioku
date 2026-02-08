@@ -1,7 +1,7 @@
-# Kioku (Anki Card Generator)
+# Kioku
 
 Generate Japanese Anki cards from an image:
-- Extract Japanese text with EasyOCR + Janome
+- Extract Japanese text with Manga OCR
 - Enrich reading/meaning/example fields with Groq
 - Generate Japanese audio with Edge TTS
 - Push notes directly into Anki via AnkiConnect
@@ -9,8 +9,7 @@ Generate Japanese Anki cards from an image:
 ## Requirements
 
 - Python 3.11+
-- Anki desktop app
-- AnkiConnect add-on enabled in Anki
+- Anki desktop app with AnkiConnect add-on enabled
 
 ## Install
 
@@ -20,70 +19,46 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-Or install dependencies directly:
-
-```bash
-pip install -r requirements.txt
-```
-
 ## Configuration
 
-### AnkiConnect URL
+Set the following in `.env`:
 
-Optional `config.json` in project root:
-
-```json
-{
-  "anki_connect_url": "http://127.0.0.1:8765"
-}
-```
-
-Notes:
-- `anki_connect_url` is used by the Anki integration.
-- Set `GROQ_API_KEY` in `.env` (required for extraction enrichment).
-- Optional: set `GROQ_MODEL` (default is `llama-3.1-8b-instant`).
-- Optional: set `IGNORE_PARTICLES=true|false` (default `true`) to skip/include Japanese particles in word cards.
+- `GROQ_API_KEY` (required)
+- `GROQ_MODEL` (optional, default: `meta-llama/llama-4-scout-17b-16e-instruct`)
+- `ANKI_CONNECT_URL` (optional, default: `http://172.20.144.1:8765`)
 
 ## Run
-
-### CLI entrypoint (installed via `setup.py`)
 
 ```bash
 kioku
 ```
 
-### Direct Python run
+### Docker
 
 ```bash
-python main.py
+docker build -t kioku .
+docker run --env-file .env -p 8000:8000 kioku
 ```
 
-App default URL:
-- `http://localhost:8000`
+App runs at `http://localhost:8000`.
 
 ## API Endpoints
 
-- `POST /api/extract`
-  - multipart form with `file`
-  - returns extracted card objects
-- `POST /api/generate`
-  - JSON body with `cards` and optional `deck_name`
-  - generates audio and pushes notes to Anki
+- `POST /api/extract` — multipart form with `file`, returns extracted card objects
+- `POST /api/generate` — JSON body with `cards` and optional `deck_name`, generates audio and pushes notes to Anki
 
-## Troubleshooting
+## Project Structure
 
-- `Connection refused` on `/api/generate`
-  - AnkiConnect is not reachable at configured `anki_connect_url`.
-  - Ensure Anki is open and AnkiConnect is installed/enabled.
-
-- Slow first OCR call
-  - EasyOCR loads models on first use, so the first extraction can take longer.
-
-## Development Notes
-
-- Frontend is a Vue 3 app embedded in `static/index.html` (CDN-based, no separate build step).
-- Backend is FastAPI in `main.py`.
-- Services:
-  - `services/image_processor.py`
-  - `services/audio_generator.py`
-  - `services/anki_builder.py`
+```
+kioku/
+├── __init__.py
+├── __main__.py        # CLI entrypoint
+├── main.py            # FastAPI app
+├── models.py          # Pydantic models
+└── services/
+    ├── image_processor.py   # Manga OCR + Groq enrichment
+    ├── audio_generator.py   # Edge TTS
+    └── anki_builder.py      # AnkiConnect integration
+static/
+└── index.html         # Vue 3 frontend
+```

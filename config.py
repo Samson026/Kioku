@@ -4,8 +4,7 @@ import os
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 
 DEFAULTS = {
-    "gemini_api_key": "",
-    "anki_connect_url": "http://172.20.144.1:8765",
+    "anki_connect_url": "http://127.0.0.1:8765",
 }
 
 
@@ -22,28 +21,16 @@ def _save(cfg: dict):
 
 
 def get_all() -> dict:
-    """Return config with the API key masked."""
-    cfg = _load()
-    key = cfg.get("gemini_api_key", "")
-    cfg["gemini_api_key_set"] = bool(key)
-    cfg["gemini_api_key"] = ""
-    return cfg
+    """Return all stored app config values."""
+    return _load()
 
 
 def update(values: dict):
-    """Merge provided values into config. Empty gemini_api_key means keep existing."""
+    """Merge provided values into config."""
     cfg = _load()
     if "anki_connect_url" in values:
         cfg["anki_connect_url"] = values["anki_connect_url"]
-    if values.get("gemini_api_key"):
-        cfg["gemini_api_key"] = values["gemini_api_key"]
     _save(cfg)
-
-
-def get_gemini_api_key() -> str:
-    """Return the Gemini API key (config file, then env var fallback)."""
-    key = _load().get("gemini_api_key", "")
-    return key or os.environ.get("GEMINI_API_KEY", "")
 
 
 def get_anki_connect_url() -> str:

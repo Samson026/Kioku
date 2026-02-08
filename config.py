@@ -4,7 +4,7 @@ import os
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 
 DEFAULTS = {
-    "anki_connect_url": "http://127.0.0.1:8765",
+    "anki_connect_url": "http://172.20.144.1:8765",
 }
 
 

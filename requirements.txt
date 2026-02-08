@@ -1,7 +1,5 @@
 fastapi
 uvicorn
-easyocr
-janome
 groq
 edge-tts
 python-dotenv

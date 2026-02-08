@@ -1,3 +1,5 @@
+import asyncio
+
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -33,15 +35,23 @@ async def api_extract(file: UploadFile = File(...)):
 
 @app.post("/api/generate")
 async def api_generate(req: GenerateRequest):
-    audio_map: dict[str, bytes] = {}
-
     try:
-        for i, card in enumerate(req.cards):
-            word_audio = await generate_audio(card.japanese)
-            audio_map[f"word_{i}.mp3"] = word_audio
+        # Collect unique texts to avoid duplicate TTS requests.
+        unique_texts: dict[str, None] = {}
+        for card in req.cards:
+            unique_texts[card.japanese] = None
+            unique_texts[card.example_sentence] = None
 
-            sentence_audio = await generate_audio(card.example_sentence)
-            audio_map[f"sentence_{i}.mp3"] = sentence_audio
+        text_list = list(unique_texts)
+        audio_results = await asyncio.gather(
+            *(generate_audio(t) for t in text_list)
+        )
+        audio_cache = dict(zip(text_list, audio_results))
+
+        audio_map: dict[str, bytes] = {}
+        for i, card in enumerate(req.cards):
+            audio_map[f"word_{i}.mp3"] = audio_cache[card.japanese]
+            audio_map[f"sentence_{i}.mp3"] = audio_cache[card.example_sentence]
 
         added = add_cards(req.cards, audio_map, req.deck_name)
         return {"added": added}

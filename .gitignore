@@ -1,0 +1,6 @@
+tmp/
+.env
+__pycache__/
+*.apkg
+*.pyc
+.venv/

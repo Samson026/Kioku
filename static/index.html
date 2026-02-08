@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Japanese → Anki Cards</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #333; }
+  .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+  h1 { text-align: center; margin-bottom: 8px; font-size: 1.8em; }
+  .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
+
+  /* Upload area */
+  .upload-area {
+    border: 3px dashed #ccc; border-radius: 12px; padding: 60px 20px;
+    text-align: center; cursor: pointer; transition: border-color 0.2s;
+    background: #fff;
+  }
+  .upload-area:hover, .upload-area.dragover { border-color: #4a90d9; background: #f0f6ff; }
+  .upload-area input { display: none; }
+  .upload-area p { font-size: 1.1em; color: #666; }
+  .upload-area .icon { font-size: 3em; margin-bottom: 10px; }
+
+  /* Cropper */
+  .cropper-section { display: none; background: #fff; border-radius: 12px; padding: 20px; margin-top: 20px; }
+  .cropper-section img { max-width: 100%; display: block; }
+  .cropper-buttons { margin-top: 15px; display: flex; gap: 10px; justify-content: center; }
+
+  /* Cards */
+  .cards-section { display: none; margin-top: 20px; }
+  .card-item {
+    background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .card-item .card-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+  }
+  .card-item .japanese { font-size: 1.6em; font-weight: bold; }
+  .card-item .field { margin-bottom: 8px; }
+  .card-item label { font-size: 0.85em; color: #666; display: block; margin-bottom: 2px; }
+  .card-item input, .card-item textarea {
+    width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px;
+    font-size: 0.95em;
+  }
+  .card-item textarea { resize: vertical; min-height: 40px; }
+  .remove-btn {
+    background: none; border: none; color: #999; font-size: 1.4em; cursor: pointer;
+    padding: 0 6px;
+  }
+  .remove-btn:hover { color: #e44; }
+
+  /* Generate section */
+  .generate-section { display: none; margin-top: 20px; text-align: center; }
+  .deck-name-input {
+    padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1em;
+    width: 300px; margin-bottom: 15px;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 12px 28px; border: none; border-radius: 8px; font-size: 1em;
+    cursor: pointer; transition: background 0.2s; font-weight: 600;
+  }
+  .btn-primary { background: #4a90d9; color: #fff; }
+  .btn-primary:hover { background: #357abd; }
+  .btn-primary:disabled { background: #a0c4e8; cursor: not-allowed; }
+  .btn-secondary { background: #eee; color: #333; }
+  .btn-secondary:hover { background: #ddd; }
+  .btn-success { background: #4caf50; color: #fff; }
+  .btn-success:hover { background: #43a047; }
+
+  /* Status */
+  .status { text-align: center; margin-top: 15px; padding: 12px; border-radius: 8px; display: none; }
+  .status.loading { display: block; background: #e3f2fd; color: #1565c0; }
+  .status.error { display: block; background: #ffebee; color: #c62828; }
+  .status.success { display: block; background: #e8f5e9; color: #2e7d32; }
+
+  .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid #1565c0;
+    border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;
+    vertical-align: middle; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Japanese → Anki Cards</h1>
+  <p class="subtitle">Upload a photo of Japanese text to generate flashcards with audio</p>
+
+  <!-- Upload -->
+  <div class="upload-area" id="uploadArea">
+    <div class="icon">📷</div>
+    <p>Drop an image here or click to upload</p>
+    <input type="file" id="fileInput" accept="image/*">
+  </div>
+
+  <!-- Cropper -->
+  <div class="cropper-section" id="cropperSection">
+    <img id="cropperImage" src="" alt="Preview">
+    <div class="cropper-buttons">
+      <button class="btn btn-primary" id="extractBtn">Extract Text</button>
+      <button class="btn btn-secondary" id="extractFullBtn">Use Full Image</button>
+      <button class="btn btn-secondary" id="resetBtn">Choose Different Image</button>
+    </div>
+  </div>
+
+  <div class="status" id="extractStatus"></div>
+
+  <!-- Cards -->
+  <div class="cards-section" id="cardsSection">
+    <h2 style="margin-bottom: 15px;">Extracted Cards</h2>
+    <div id="cardsList"></div>
+  </div>
+
+  <!-- Generate -->
+  <div class="generate-section" id="generateSection">
+    <input type="text" class="deck-name-input" id="deckName" value="ankiGen" placeholder="Deck name">
+    <br>
+    <button class="btn btn-success" id="generateBtn">Add to Anki</button>
+    <div class="status" id="generateStatus"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+<script>
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('fileInput');
+const cropperSection = document.getElementById('cropperSection');
+const cropperImage = document.getElementById('cropperImage');
+const extractBtn = document.getElementById('extractBtn');
+const extractFullBtn = document.getElementById('extractFullBtn');
+const resetBtn = document.getElementById('resetBtn');
+const extractStatus = document.getElementById('extractStatus');
+const cardsSection = document.getElementById('cardsSection');
+const cardsList = document.getElementById('cardsList');
+const generateSection = document.getElementById('generateSection');
+const generateBtn = document.getElementById('generateBtn');
+const generateStatus = document.getElementById('generateStatus');
+const deckNameInput = document.getElementById('deckName');
+
+let cropper = null;
+let originalFile = null;
+
+// Upload handlers
+uploadArea.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => { if (e.target.files[0]) loadImage(e.target.files[0]); });
+uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+uploadArea.addEventListener('drop', (e) => {
+  e.preventDefault();
+  uploadArea.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) loadImage(e.dataTransfer.files[0]);
+});
+
+function loadImage(file) {
+  originalFile = file;
+  const url = URL.createObjectURL(file);
+  cropperImage.src = url;
+  cropperSection.style.display = 'block';
+  uploadArea.style.display = 'none';
+  cardsSection.style.display = 'none';
+  generateSection.style.display = 'none';
+  setStatus(extractStatus, '');
+
+  if (cropper) cropper.destroy();
+  cropperImage.onload = () => {
+    cropper = new Cropper(cropperImage, {
+      viewMode: 1,
+      autoCropArea: 0.8,
+    });
+  };
+}
+
+function reset() {
+  if (cropper) { cropper.destroy(); cropper = null; }
+  cropperSection.style.display = 'none';
+  cardsSection.style.display = 'none';
+  generateSection.style.display = 'none';
+  uploadArea.style.display = 'block';
+  fileInput.value = '';
+  setStatus(extractStatus, '');
+  setStatus(generateStatus, '');
+}
+
+resetBtn.addEventListener('click', reset);
+
+// Extract from cropped region
+extractBtn.addEventListener('click', () => {
+  const canvas = cropper.getCroppedCanvas();
+  canvas.toBlob((blob) => sendForExtraction(blob), originalFile.type || 'image/jpeg');
+});
+
+// Extract from full image
+extractFullBtn.addEventListener('click', () => sendForExtraction(originalFile));
+
+async function sendForExtraction(blob) {
+  setStatus(extractStatus, 'loading', 'Extracting Japanese text...');
+  extractBtn.disabled = true;
+  extractFullBtn.disabled = true;
+
+  const formData = new FormData();
+  formData.append('file', blob, 'image.jpg');
+
+  try {
+    const resp = await fetch('/api/extract', { method: 'POST', body: formData });
+    if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
+    const data = await resp.json();
+
+    if (!data.cards || data.cards.length === 0) {
+      setStatus(extractStatus, 'error', 'No Japanese text found in the image.');
+      return;
+    }
+
+    renderCards(data.cards);
+    setStatus(extractStatus, 'success', `Found ${data.cards.length} card(s)`);
+  } catch (err) {
+    setStatus(extractStatus, 'error', `Extraction failed: ${err.message}`);
+  } finally {
+    extractBtn.disabled = false;
+    extractFullBtn.disabled = false;
+  }
+}
+
+function renderCards(cards) {
+  cardsList.innerHTML = '';
+  cards.forEach((card, i) => {
+    const div = document.createElement('div');
+    div.className = 'card-item';
+    div.dataset.index = i;
+    div.innerHTML = `
+      <div class="card-header">
+        <span class="japanese">${esc(card.japanese)}</span>
+        <button class="remove-btn" title="Remove">&times;</button>
+      </div>
+      <div class="field"><label>Reading</label><input name="reading" value="${esc(card.reading)}"></div>
+      <div class="field"><label>Meaning</label><input name="meaning" value="${esc(card.meaning)}"></div>
+      <div class="field"><label>Example Sentence</label><textarea name="example_sentence">${esc(card.example_sentence)}</textarea></div>
+      <div class="field"><label>Example Translation</label><textarea name="example_translation">${esc(card.example_translation)}</textarea></div>
+    `;
+    div.querySelector('.remove-btn').addEventListener('click', () => {
+      div.remove();
+      if (cardsList.children.length === 0) {
+        generateSection.style.display = 'none';
+      }
+    });
+    cardsList.appendChild(div);
+  });
+  cardsSection.style.display = 'block';
+  generateSection.style.display = 'block';
+}
+
+function gatherCards() {
+  const items = [];
+  cardsList.querySelectorAll('.card-item').forEach(div => {
+    items.push({
+      japanese: div.querySelector('.japanese').textContent,
+      reading: div.querySelector('[name=reading]').value,
+      meaning: div.querySelector('[name=meaning]').value,
+      example_sentence: div.querySelector('[name=example_sentence]').value,
+      example_translation: div.querySelector('[name=example_translation]').value,
+    });
+  });
+  return items;
+}
+
+generateBtn.addEventListener('click', async () => {
+  const cards = gatherCards();
+  if (cards.length === 0) return;
+
+  setStatus(generateStatus, 'loading', 'Generating audio and adding to Anki... This may take a minute.');
+  generateBtn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cards, deck_name: deckNameInput.value }),
+    });
+    if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
+    const data = await resp.json();
+
+    setStatus(generateStatus, 'success',
+      `Added ${data.added} card(s) to <b>${esc(deckNameInput.value)}</b> deck!`
+    );
+  } catch (err) {
+    setStatus(generateStatus, 'error', `Generation failed: ${err.message}`);
+  } finally {
+    generateBtn.disabled = false;
+  }
+});
+
+function setStatus(el, type, msg) {
+  el.className = 'status';
+  if (!type) { el.style.display = 'none'; return; }
+  el.classList.add(type);
+  el.innerHTML = type === 'loading' ? `<span class="spinner"></span>${msg}` : msg;
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>

@@ -88,8 +88,8 @@ def add_cards(
     # Add notes
     added = 0
     for i, card in enumerate(cards):
-        word_audio_file = f"{card.japanese}_word.mp3"
-        sentence_audio_file = f"{card.japanese}_sentence_{i}.mp3"
+        word_audio_file = f"word_{i}.mp3"
+        sentence_audio_file = f"sentence_{i}.mp3"
 
         _anki_request(
             "addNote",

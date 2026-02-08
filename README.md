@@ -1,7 +1,8 @@
 # Kioku (Anki Card Generator)
 
 Generate Japanese Anki cards from an image:
-- Extract vocabulary with Gemini Vision
+- Extract Japanese text with EasyOCR + Janome
+- Enrich reading/meaning/example fields with Groq
 - Generate Japanese audio with Edge TTS
 - Push notes directly into Anki via AnkiConnect
 
@@ -10,7 +11,6 @@ Generate Japanese Anki cards from an image:
 - Python 3.11+
 - Anki desktop app
 - AnkiConnect add-on enabled in Anki
-- Gemini API key (used for image/text extraction)
 
 ## Install
 
@@ -28,15 +28,7 @@ pip install -r requirements.txt
 
 ## Configuration
 
-### 1. Gemini API key
-
-Create `.env` in the project root:
-
-```env
-GEMINI_API_KEY=your_key_here
-```
-
-### 2. AnkiConnect URL
+### AnkiConnect URL
 
 Optional `config.json` in project root:
 
@@ -48,14 +40,16 @@ Optional `config.json` in project root:
 
 Notes:
 - `anki_connect_url` is used by the Anki integration.
-- Gemini API key is read from `.env` / environment only.
+- Set `GROQ_API_KEY` in `.env` (required for extraction enrichment).
+- Optional: set `GROQ_MODEL` (default is `llama-3.1-8b-instant`).
+- Optional: set `IGNORE_PARTICLES=true|false` (default `true`) to skip/include Japanese particles in word cards.
 
 ## Run
 
 ### CLI entrypoint (installed via `setup.py`)
 
 ```bash
-anki-card-generator
+kioku
 ```
 
 ### Direct Python run
@@ -82,9 +76,8 @@ App default URL:
   - AnkiConnect is not reachable at configured `anki_connect_url`.
   - Ensure Anki is open and AnkiConnect is installed/enabled.
 
-- Gemini quota/rate issues on extraction
-  - This affects `/api/extract` only.
-  - Retry later or use a key/project with higher limits.
+- Slow first OCR call
+  - EasyOCR loads models on first use, so the first extraction can take longer.
 
 ## Development Notes
 

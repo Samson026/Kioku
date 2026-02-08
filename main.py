@@ -38,10 +38,10 @@ async def api_generate(req: GenerateRequest):
     try:
         for i, card in enumerate(req.cards):
             word_audio = await generate_audio(card.japanese)
-            audio_map[f"{card.japanese}_word.mp3"] = word_audio
+            audio_map[f"word_{i}.mp3"] = word_audio
 
             sentence_audio = await generate_audio(card.example_sentence)
-            audio_map[f"{card.example_sentence}_sentence.mp3"] = sentence_audio
+            audio_map[f"sentence_{i}.mp3"] = sentence_audio
 
         added = add_cards(req.cards, audio_map, req.deck_name)
         return {"added": added}

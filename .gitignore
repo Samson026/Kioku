@@ -4,3 +4,10 @@ __pycache__/
 *.apkg
 *.pyc
 .venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.claude/
+config.json

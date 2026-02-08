@@ -17,6 +17,12 @@ setup(
     name="anki-card-generator",
     version="0.1.0",
     description="Generate Japanese Anki cards from images with audio",
-    packages=find_packages(),
+    packages=find_packages(include=["anki_card_generator", "services", "services.*"]),
+    py_modules=["main", "config", "models"],
     install_requires=load_requirements(),
+    entry_points={
+        "console_scripts": [
+            "anki-card-generator=anki_card_generator.__main__:main",
+        ]
+    },
 )

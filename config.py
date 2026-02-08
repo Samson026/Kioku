@@ -5,7 +5,7 @@ CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 
 DEFAULTS = {
     "gemini_api_key": "",
-    "anki_connect_url": "http://localhost:8765",
+    "anki_connect_url": "http://172.20.144.1:8765",
 }
 
 

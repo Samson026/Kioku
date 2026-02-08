@@ -1,42 +1,24 @@
-import io
-import wave
+import edge_tts
 
-from google import genai
-from google.genai import types
-
-import config
+VOICE = "ja-JP-NanamiNeural"
 
 
-def generate_audio(text: str) -> bytes:
-    """Generate WAV audio for Japanese text using Gemini TTS. Returns WAV bytes."""
-    client = genai.Client(api_key=config.get_gemini_api_key())
+async def generate_audio(text: str) -> bytes:
+    """Generate MP3 audio for Japanese text using Microsoft Edge TTS."""
+    if not text or not text.strip():
+        raise RuntimeError("Cannot generate audio for empty text.")
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash-preview-tts",
-        contents=f"Read the following Japanese text aloud: {text}",
-        config=types.GenerateContentConfig(
-            response_modalities=["AUDIO"],
-            speech_config=types.SpeechConfig(
-                voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                        voice_name="Kore",
-                    )
-                )
-            ),
-        ),
-    )
+    communicate = edge_tts.Communicate(text=text, voice=VOICE)
+    audio_chunks: list[bytes] = []
 
-    candidate = response.candidates[0] if response.candidates else None
-    if not candidate or not candidate.content or not candidate.content.parts:
-        raise RuntimeError(f"TTS returned no audio for: {text!r}")
+    try:
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio_chunks.append(chunk["data"])
+    except Exception as err:
+        raise RuntimeError(f"Edge TTS request failed: {err}") from err
 
-    pcm_data = candidate.content.parts[0].inline_data.data
+    if not audio_chunks:
+        raise RuntimeError(f"Edge TTS returned no audio for: {text!r}")
 
-    buf = io.BytesIO()
-    with wave.open(buf, "wb") as wf:
-        wf.setnchannels(1)
-        wf.setsampwidth(2)
-        wf.setframerate(24000)
-        wf.writeframes(pcm_data)
-
-    return buf.getvalue()
+    return b"".join(audio_chunks)

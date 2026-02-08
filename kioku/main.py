@@ -5,12 +5,11 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
 
-from models import ExtractionResult, GenerateRequest
-from services.anki_builder import add_cards
-from services.audio_generator import generate_audio
-from services.image_processor import extract_cards
+from kioku.models import ExtractionResult, GenerateRequest
+from kioku.services.anki_builder import add_cards
+from kioku.services.audio_generator import generate_audio
+from kioku.services.image_processor import extract_cards
 
 load_dotenv()
 
@@ -61,4 +60,4 @@ async def api_generate(req: GenerateRequest):
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("kioku.main:app", host="0.0.0.0", port=8000, reload=True)

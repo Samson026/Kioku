@@ -3,7 +3,7 @@ import json
 import os
 import urllib.request
 
-from models import CardItem
+from kioku.models import CardItem
 
 DEFAULT_ANKI_CONNECT_URL = "http://172.20.144.1:8765"
 MODEL_NAME = "Japanese Vocab (ankiGen)"

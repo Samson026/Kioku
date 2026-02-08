@@ -7,7 +7,7 @@ from groq import Groq
 from manga_ocr import MangaOcr
 from PIL import Image
 
-from models import CardItem
+from kioku.models import CardItem
 
 logger = logging.getLogger(__name__)
 

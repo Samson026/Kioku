@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Japanese → Anki Cards</title>
+<title>Japanese -> Anki Cards</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -12,7 +12,6 @@
   h1 { text-align: center; margin-bottom: 8px; font-size: 1.8em; }
   .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
 
-  /* Upload area */
   .upload-area {
     border: 3px dashed #ccc; border-radius: 12px; padding: 60px 20px;
     text-align: center; cursor: pointer; transition: border-color 0.2s;
@@ -21,15 +20,13 @@
   .upload-area:hover, .upload-area.dragover { border-color: #4a90d9; background: #f0f6ff; }
   .upload-area input { display: none; }
   .upload-area p { font-size: 1.1em; color: #666; }
-  .upload-area .icon { font-size: 3em; margin-bottom: 10px; }
+  .upload-area .icon { font-size: 2.4em; margin-bottom: 10px; }
 
-  /* Cropper */
-  .cropper-section { display: none; background: #fff; border-radius: 12px; padding: 20px; margin-top: 20px; }
+  .cropper-section { background: #fff; border-radius: 12px; padding: 20px; margin-top: 20px; }
   .cropper-section img { max-width: 100%; display: block; }
-  .cropper-buttons { margin-top: 15px; display: flex; gap: 10px; justify-content: center; }
+  .cropper-buttons { margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
-  /* Cards */
-  .cards-section { display: none; margin-top: 20px; }
+  .cards-section { margin-top: 20px; }
   .card-item {
     background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 12px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -51,14 +48,12 @@
   }
   .remove-btn:hover { color: #e44; }
 
-  /* Generate section */
-  .generate-section { display: none; margin-top: 20px; text-align: center; }
+  .generate-section { margin-top: 20px; text-align: center; }
   .deck-name-input {
     padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1em;
-    width: 300px; margin-bottom: 15px;
+    width: 300px; max-width: 100%; margin-bottom: 15px;
   }
 
-  /* Buttons */
   .btn {
     padding: 12px 28px; border: none; border-radius: 8px; font-size: 1em;
     cursor: pointer; transition: background 0.2s; font-weight: 600;
@@ -70,238 +65,247 @@
   .btn-secondary:hover { background: #ddd; }
   .btn-success { background: #4caf50; color: #fff; }
   .btn-success:hover { background: #43a047; }
+  .btn:disabled { opacity: 0.75; cursor: not-allowed; }
 
-  /* Status */
-  .status { text-align: center; margin-top: 15px; padding: 12px; border-radius: 8px; display: none; }
-  .status.loading { display: block; background: #e3f2fd; color: #1565c0; }
-  .status.error { display: block; background: #ffebee; color: #c62828; }
-  .status.success { display: block; background: #e8f5e9; color: #2e7d32; }
+  .status {
+    text-align: center; margin-top: 15px; padding: 12px; border-radius: 8px; display: flex;
+    align-items: center; justify-content: center; gap: 8px;
+  }
+  .status.loading { background: #e3f2fd; color: #1565c0; }
+  .status.error { background: #ffebee; color: #c62828; }
+  .status.success { background: #e8f5e9; color: #2e7d32; }
 
-  .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid #1565c0;
+  .spinner {
+    display: inline-block; width: 18px; height: 18px; border: 3px solid #1565c0;
     border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;
-    vertical-align: middle; margin-right: 8px; }
+  }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
-<div class="container">
-  <h1>Japanese → Anki Cards</h1>
+<div id="app" class="container">
+  <h1>Japanese -> Anki Cards</h1>
   <p class="subtitle">Upload a photo of Japanese text to generate flashcards with audio</p>
 
-  <!-- Upload -->
-  <div class="upload-area" id="uploadArea">
-    <div class="icon">📷</div>
+  <div
+    v-if="!showCropper"
+    class="upload-area"
+    :class="{ dragover }"
+    @click="openFilePicker"
+    @dragover.prevent="dragover = true"
+    @dragleave="dragover = false"
+    @drop.prevent="onDrop"
+  >
+    <div class="icon">IMG</div>
     <p>Drop an image here or click to upload</p>
-    <input type="file" id="fileInput" accept="image/*">
+    <input ref="fileInput" type="file" accept="image/*" @change="onFileChange">
   </div>
 
-  <!-- Cropper -->
-  <div class="cropper-section" id="cropperSection">
-    <img id="cropperImage" src="" alt="Preview">
+  <div v-if="showCropper" class="cropper-section">
+    <img ref="cropperImage" :src="imageSrc" alt="Preview" @load="onCropperImageLoad">
     <div class="cropper-buttons">
-      <button class="btn btn-primary" id="extractBtn">Extract Text</button>
-      <button class="btn btn-secondary" id="extractFullBtn">Use Full Image</button>
-      <button class="btn btn-secondary" id="resetBtn">Choose Different Image</button>
+      <button class="btn btn-primary" :disabled="extracting" @click="extractFromCrop">Extract Text</button>
+      <button class="btn btn-secondary" :disabled="extracting" @click="extractFromFullImage">Use Full Image</button>
+      <button class="btn btn-secondary" :disabled="extracting" @click="resetAll">Choose Different Image</button>
     </div>
   </div>
 
-  <div class="status" id="extractStatus"></div>
-
-  <!-- Cards -->
-  <div class="cards-section" id="cardsSection">
-    <h2 style="margin-bottom: 15px;">Extracted Cards</h2>
-    <div id="cardsList"></div>
+  <div v-if="extractStatus.type" class="status" :class="extractStatus.type">
+    <span v-if="extractStatus.type === 'loading'" class="spinner"></span>
+    <span>{{ extractStatus.message }}</span>
   </div>
 
-  <!-- Generate -->
-  <div class="generate-section" id="generateSection">
-    <input type="text" class="deck-name-input" id="deckName" value="ankiGen" placeholder="Deck name">
+  <div v-if="cards.length > 0" class="cards-section">
+    <h2 style="margin-bottom: 15px;">Extracted Cards</h2>
+    <div class="card-item" v-for="(card, i) in cards" :key="i">
+      <div class="card-header">
+        <span class="japanese">{{ card.japanese }}</span>
+        <button class="remove-btn" title="Remove" @click="removeCard(i)">&times;</button>
+      </div>
+      <div class="field">
+        <label>Reading</label>
+        <input v-model="card.reading">
+      </div>
+      <div class="field">
+        <label>Meaning</label>
+        <input v-model="card.meaning">
+      </div>
+      <div class="field">
+        <label>Example Sentence</label>
+        <textarea v-model="card.example_sentence"></textarea>
+      </div>
+      <div class="field">
+        <label>Example Translation</label>
+        <textarea v-model="card.example_translation"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div v-if="cards.length > 0" class="generate-section">
+    <input type="text" class="deck-name-input" v-model="deckName" placeholder="Deck name">
     <br>
-    <button class="btn btn-success" id="generateBtn">Add to Anki</button>
-    <div class="status" id="generateStatus"></div>
+    <button class="btn btn-success" :disabled="generating" @click="generateToAnki">Add to Anki</button>
+    <div v-if="generateStatus.type" class="status" :class="generateStatus.type">
+      <span v-if="generateStatus.type === 'loading'" class="spinner"></span>
+      <span>{{ generateStatus.message }}</span>
+    </div>
   </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script>
-const uploadArea = document.getElementById('uploadArea');
-const fileInput = document.getElementById('fileInput');
-const cropperSection = document.getElementById('cropperSection');
-const cropperImage = document.getElementById('cropperImage');
-const extractBtn = document.getElementById('extractBtn');
-const extractFullBtn = document.getElementById('extractFullBtn');
-const resetBtn = document.getElementById('resetBtn');
-const extractStatus = document.getElementById('extractStatus');
-const cardsSection = document.getElementById('cardsSection');
-const cardsList = document.getElementById('cardsList');
-const generateSection = document.getElementById('generateSection');
-const generateBtn = document.getElementById('generateBtn');
-const generateStatus = document.getElementById('generateStatus');
-const deckNameInput = document.getElementById('deckName');
+const { createApp } = Vue;
 
-let cropper = null;
-let originalFile = null;
-
-// Upload handlers
-uploadArea.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', (e) => { if (e.target.files[0]) loadImage(e.target.files[0]); });
-uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
-uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
-uploadArea.addEventListener('drop', (e) => {
-  e.preventDefault();
-  uploadArea.classList.remove('dragover');
-  if (e.dataTransfer.files[0]) loadImage(e.dataTransfer.files[0]);
-});
-
-function loadImage(file) {
-  originalFile = file;
-  const url = URL.createObjectURL(file);
-  cropperImage.src = url;
-  cropperSection.style.display = 'block';
-  uploadArea.style.display = 'none';
-  cardsSection.style.display = 'none';
-  generateSection.style.display = 'none';
-  setStatus(extractStatus, '');
-
-  if (cropper) cropper.destroy();
-  cropperImage.onload = () => {
-    cropper = new Cropper(cropperImage, {
-      viewMode: 1,
-      autoCropArea: 0.8,
-    });
-  };
-}
-
-function reset() {
-  if (cropper) { cropper.destroy(); cropper = null; }
-  cropperSection.style.display = 'none';
-  cardsSection.style.display = 'none';
-  generateSection.style.display = 'none';
-  uploadArea.style.display = 'block';
-  fileInput.value = '';
-  setStatus(extractStatus, '');
-  setStatus(generateStatus, '');
-}
-
-resetBtn.addEventListener('click', reset);
-
-// Extract from cropped region
-extractBtn.addEventListener('click', () => {
-  const canvas = cropper.getCroppedCanvas();
-  canvas.toBlob((blob) => sendForExtraction(blob), originalFile.type || 'image/jpeg');
-});
-
-// Extract from full image
-extractFullBtn.addEventListener('click', () => sendForExtraction(originalFile));
-
-async function sendForExtraction(blob) {
-  setStatus(extractStatus, 'loading', 'Extracting Japanese text...');
-  extractBtn.disabled = true;
-  extractFullBtn.disabled = true;
-
-  const formData = new FormData();
-  formData.append('file', blob, 'image.jpg');
-
-  try {
-    const resp = await fetch('/api/extract', { method: 'POST', body: formData });
-    if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
-    const data = await resp.json();
-
-    if (!data.cards || data.cards.length === 0) {
-      setStatus(extractStatus, 'error', 'No Japanese text found in the image.');
-      return;
-    }
-
-    renderCards(data.cards);
-    setStatus(extractStatus, 'success', `Found ${data.cards.length} card(s)`);
-  } catch (err) {
-    setStatus(extractStatus, 'error', `Extraction failed: ${err.message}`);
-  } finally {
-    extractBtn.disabled = false;
-    extractFullBtn.disabled = false;
-  }
-}
-
-function renderCards(cards) {
-  cardsList.innerHTML = '';
-  cards.forEach((card, i) => {
-    const div = document.createElement('div');
-    div.className = 'card-item';
-    div.dataset.index = i;
-    div.innerHTML = `
-      <div class="card-header">
-        <span class="japanese">${esc(card.japanese)}</span>
-        <button class="remove-btn" title="Remove">&times;</button>
-      </div>
-      <div class="field"><label>Reading</label><input name="reading" value="${esc(card.reading)}"></div>
-      <div class="field"><label>Meaning</label><input name="meaning" value="${esc(card.meaning)}"></div>
-      <div class="field"><label>Example Sentence</label><textarea name="example_sentence">${esc(card.example_sentence)}</textarea></div>
-      <div class="field"><label>Example Translation</label><textarea name="example_translation">${esc(card.example_translation)}</textarea></div>
-    `;
-    div.querySelector('.remove-btn').addEventListener('click', () => {
-      div.remove();
-      if (cardsList.children.length === 0) {
-        generateSection.style.display = 'none';
+createApp({
+  data() {
+    return {
+      dragover: false,
+      imageSrc: "",
+      originalFile: null,
+      cropper: null,
+      objectUrl: null,
+      cards: [],
+      deckName: "ankiGen",
+      extracting: false,
+      generating: false,
+      extractStatus: { type: "", message: "" },
+      generateStatus: { type: "", message: "" },
+    };
+  },
+  computed: {
+    showCropper() {
+      return Boolean(this.imageSrc);
+    },
+  },
+  methods: {
+    openFilePicker() {
+      this.$refs.fileInput.click();
+    },
+    onFileChange(event) {
+      const file = event.target.files && event.target.files[0];
+      if (file) this.loadImage(file);
+    },
+    onDrop(event) {
+      this.dragover = false;
+      const file = event.dataTransfer.files && event.dataTransfer.files[0];
+      if (file) this.loadImage(file);
+    },
+    loadImage(file) {
+      this.originalFile = file;
+      this.cards = [];
+      this.generateStatus = { type: "", message: "" };
+      this.extractStatus = { type: "", message: "" };
+      if (this.objectUrl) URL.revokeObjectURL(this.objectUrl);
+      this.objectUrl = URL.createObjectURL(file);
+      this.imageSrc = this.objectUrl;
+    },
+    onCropperImageLoad() {
+      if (this.cropper) this.cropper.destroy();
+      this.cropper = new Cropper(this.$refs.cropperImage, {
+        viewMode: 1,
+        autoCropArea: 0.8,
+      });
+    },
+    resetAll() {
+      if (this.cropper) {
+        this.cropper.destroy();
+        this.cropper = null;
       }
-    });
-    cardsList.appendChild(div);
-  });
-  cardsSection.style.display = 'block';
-  generateSection.style.display = 'block';
-}
+      if (this.objectUrl) {
+        URL.revokeObjectURL(this.objectUrl);
+        this.objectUrl = null;
+      }
+      this.imageSrc = "";
+      this.originalFile = null;
+      this.cards = [];
+      this.deckName = "ankiGen";
+      this.extracting = false;
+      this.generating = false;
+      this.extractStatus = { type: "", message: "" };
+      this.generateStatus = { type: "", message: "" };
+      if (this.$refs.fileInput) this.$refs.fileInput.value = "";
+    },
+    async extractFromCrop() {
+      if (!this.cropper) return;
+      const canvas = this.cropper.getCroppedCanvas();
+      if (!canvas) return;
+      const blob = await new Promise((resolve) => {
+        canvas.toBlob((b) => resolve(b), this.originalFile?.type || "image/jpeg");
+      });
+      if (!blob) {
+        this.extractStatus = { type: "error", message: "Failed to crop image." };
+        return;
+      }
+      await this.sendForExtraction(blob);
+    },
+    async extractFromFullImage() {
+      if (!this.originalFile) return;
+      await this.sendForExtraction(this.originalFile);
+    },
+    async sendForExtraction(blob) {
+      this.extracting = true;
+      this.extractStatus = { type: "loading", message: "Extracting Japanese text..." };
+      const formData = new FormData();
+      formData.append("file", blob, "image.jpg");
 
-function gatherCards() {
-  const items = [];
-  cardsList.querySelectorAll('.card-item').forEach(div => {
-    items.push({
-      japanese: div.querySelector('.japanese').textContent,
-      reading: div.querySelector('[name=reading]').value,
-      meaning: div.querySelector('[name=meaning]').value,
-      example_sentence: div.querySelector('[name=example_sentence]').value,
-      example_translation: div.querySelector('[name=example_translation]').value,
-    });
-  });
-  return items;
-}
+      try {
+        const resp = await fetch("/api/extract", { method: "POST", body: formData });
+        if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
+        const data = await resp.json();
+        if (!data.cards || data.cards.length === 0) {
+          this.extractStatus = { type: "error", message: "No Japanese text found in the image." };
+          return;
+        }
+        this.cards = data.cards;
+        this.extractStatus = { type: "success", message: `Found ${data.cards.length} card(s)` };
+      } catch (err) {
+        this.extractStatus = { type: "error", message: `Extraction failed: ${err.message}` };
+      } finally {
+        this.extracting = false;
+      }
+    },
+    removeCard(index) {
+      this.cards.splice(index, 1);
+      if (this.cards.length === 0) this.generateStatus = { type: "", message: "" };
+    },
+    async generateToAnki() {
+      if (this.cards.length === 0) return;
+      this.generating = true;
+      this.generateStatus = {
+        type: "loading",
+        message: "Generating audio and adding to Anki... This may take a minute.",
+      };
 
-generateBtn.addEventListener('click', async () => {
-  const cards = gatherCards();
-  if (cards.length === 0) return;
+      try {
+        const resp = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cards: this.cards, deck_name: this.deckName }),
+        });
 
-  setStatus(generateStatus, 'loading', 'Generating audio and adding to Anki... This may take a minute.');
-  generateBtn.disabled = true;
+        const payload = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          const detail = payload.detail || `Server error: ${resp.status}`;
+          throw new Error(detail);
+        }
 
-  try {
-    const resp = await fetch('/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cards, deck_name: deckNameInput.value }),
-    });
-    if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
-    const data = await resp.json();
-
-    setStatus(generateStatus, 'success',
-      `Added ${data.added} card(s) to <b>${esc(deckNameInput.value)}</b> deck!`
-    );
-  } catch (err) {
-    setStatus(generateStatus, 'error', `Generation failed: ${err.message}`);
-  } finally {
-    generateBtn.disabled = false;
-  }
-});
-
-function setStatus(el, type, msg) {
-  el.className = 'status';
-  if (!type) { el.style.display = 'none'; return; }
-  el.classList.add(type);
-  el.innerHTML = type === 'loading' ? `<span class="spinner"></span>${msg}` : msg;
-}
-
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
+        this.generateStatus = {
+          type: "success",
+          message: `Added ${payload.added} card(s) to ${this.deckName} deck.`,
+        };
+      } catch (err) {
+        this.generateStatus = { type: "error", message: `Generation failed: ${err.message}` };
+      } finally {
+        this.generating = false;
+      }
+    },
+  },
+  beforeUnmount() {
+    if (this.cropper) this.cropper.destroy();
+    if (this.objectUrl) URL.revokeObjectURL(this.objectUrl);
+  },
+}).mount("#app");
 </script>
 </body>
 </html>

@@ -23,7 +23,8 @@
   .upload-area .icon { font-size: 2.4em; margin-bottom: 10px; }
 
   .cropper-section { background: #fff; border-radius: 12px; padding: 20px; margin-top: 20px; }
-  .cropper-section img { max-width: 100%; display: block; }
+  .cropper-wrapper { max-height: 70vh; overflow: hidden; }
+  .cropper-wrapper img { max-width: 100%; display: block; }
   .cropper-buttons { margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
   .cards-section { margin-top: 20px; }
@@ -102,8 +103,13 @@
   </div>
 
   <div v-if="showCropper" class="cropper-section">
-    <img ref="cropperImage" :src="imageSrc" alt="Preview" @load="onCropperImageLoad">
+    <div class="cropper-wrapper">
+      <img ref="cropperImage" :src="imageSrc" alt="Preview" @load="onCropperImageLoad">
+    </div>
     <div class="cropper-buttons">
+      <button class="btn btn-secondary" @click="zoom(0.1)" title="Zoom in">+</button>
+      <button class="btn btn-secondary" @click="zoom(-0.1)" title="Zoom out">&minus;</button>
+      <button class="btn btn-secondary" @click="resetZoom" title="Reset zoom">Reset</button>
       <button class="btn btn-primary" :disabled="extracting" @click="extractFromCrop">Extract Text</button>
       <button class="btn btn-secondary" :disabled="extracting" @click="extractFromFullImage">Use Full Image</button>
       <button class="btn btn-secondary" :disabled="extracting" @click="resetAll">Choose Different Image</button>
@@ -203,8 +209,11 @@ createApp({
     onCropperImageLoad() {
       if (this.cropper) this.cropper.destroy();
       this.cropper = new Cropper(this.$refs.cropperImage, {
-        viewMode: 1,
+        viewMode: 2,
         autoCropArea: 0.8,
+        dragMode: 'move',
+        zoomOnWheel: false,
+        toggleDragModeOnDblclick: true,
       });
     },
     resetAll() {
@@ -225,6 +234,12 @@ createApp({
       this.extractStatus = { type: "", message: "" };
       this.generateStatus = { type: "", message: "" };
       if (this.$refs.fileInput) this.$refs.fileInput.value = "";
+    },
+    zoom(ratio) {
+      if (this.cropper) this.cropper.zoom(ratio);
+    },
+    resetZoom() {
+      if (this.cropper) this.cropper.zoomTo(0);
     },
     async extractFromCrop() {
       if (!this.cropper) return;

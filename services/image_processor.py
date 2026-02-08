@@ -55,7 +55,8 @@ def extract_cards(image_bytes: bytes, mime_type: str) -> list[CardItem]:
         '- "reading": full hiragana reading\n'
         '- "meaning": English meaning (for sentences give the overall meaning, for words give the dictionary meaning)\n'
         '- "example_sentence": for sentences use the sentence itself; '
-        "for words use the sentence it came from\n"
+        "for words use the sentence it came from; "
+        "for standalone words that didn't come from a sentence, create a natural example sentence using the word\n"
         '- "example_translation": English translation of the example_sentence\n\n'
         "IMPORTANT: Every field must be filled in. Never leave any field empty. "
         "Even if the text is incomplete or partial, provide your best translation.\n\n"

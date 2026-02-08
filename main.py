@@ -7,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-import config
 from models import ExtractionResult, GenerateRequest
 from services.anki_builder import add_cards
 from services.audio_generator import generate_audio

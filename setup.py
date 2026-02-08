@@ -18,7 +18,7 @@ setup(
     version="0.1.0",
     description="Generate Japanese Anki cards from images with audio",
     packages=find_packages(include=["kioku", "services", "services.*"]),
-    py_modules=["main", "config", "models"],
+    py_modules=["main", "models"],
     install_requires=load_requirements(),
     entry_points={
         "console_scripts": [

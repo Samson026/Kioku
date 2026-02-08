@@ -1,9 +1,11 @@
 import base64
 import json
+import os
 import urllib.request
 
-import config
 from models import CardItem
+
+DEFAULT_ANKI_CONNECT_URL = "http://172.20.144.1:8765"
 MODEL_NAME = "Japanese Vocab (ankiGen)"
 
 FRONT_TEMPLATE = (
@@ -26,7 +28,8 @@ MODEL_CSS = ".card { font-family: 'Noto Sans JP', sans-serif; padding: 20px; }"
 def _anki_request(action: str, **params):
     """Send a request to AnkiConnect and return the result."""
     payload = json.dumps({"action": action, "version": 6, "params": params}).encode()
-    req = urllib.request.Request(config.get_anki_connect_url(), data=payload)
+    url = os.environ.get("ANKI_CONNECT_URL", DEFAULT_ANKI_CONNECT_URL)
+    req = urllib.request.Request(url, data=payload)
     req.add_header("Content-Type", "application/json")
     with urllib.request.urlopen(req) as resp:
         body = json.loads(resp.read())

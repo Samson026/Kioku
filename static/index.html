@@ -6,92 +6,165 @@
 <title>Kioku</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
 <style>
+  :root {
+    --bg-primary: #f5f5f5;
+    --bg-secondary: #fff;
+    --text-primary: #333;
+    --text-secondary: #666;
+    --text-tertiary: #999;
+    --border-color: #ddd;
+    --border-color-light: #ccc;
+    --accent-color: #4a90d9;
+    --accent-hover: #357abd;
+    --accent-light: #f0f6ff;
+    --accent-disabled: #a0c4e8;
+    --shadow: rgba(0,0,0,0.1);
+    --success-bg: #e8f5e9;
+    --success-text: #2e7d32;
+    --error-bg: #ffebee;
+    --error-text: #c62828;
+    --loading-bg: #e3f2fd;
+    --loading-text: #1565c0;
+    --input-bg: #fff;
+  }
+
+  [data-theme="dark"] {
+    --bg-primary: #1a1a1a;
+    --bg-secondary: #2d2d2d;
+    --text-primary: #e0e0e0;
+    --text-secondary: #b0b0b0;
+    --text-tertiary: #808080;
+    --border-color: #404040;
+    --border-color-light: #505050;
+    --accent-color: #5ca3e6;
+    --accent-hover: #7bb8ed;
+    --accent-light: #1e3a52;
+    --accent-disabled: #3d5a75;
+    --shadow: rgba(0,0,0,0.3);
+    --success-bg: #1e3a1e;
+    --success-text: #66bb6a;
+    --error-bg: #3a1e1e;
+    --error-text: #ef5350;
+    --loading-bg: #1e2d3a;
+    --loading-text: #64b5f6;
+    --input-bg: #383838;
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #333; }
+  body {
+    font-family: system-ui, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: background 0.3s, color 0.3s;
+  }
   .container { max-width: 900px; margin: 0 auto; padding: 20px; }
-  h1 { text-align: center; margin-bottom: 8px; font-size: 1.8em; }
-  .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
+
+  .header-controls {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
+  }
+  .header-controls h1 { margin: 0; font-size: 1.8em; }
+  .theme-toggle {
+    background: var(--bg-secondary); border: 2px solid var(--border-color);
+    border-radius: 8px; padding: 8px 16px; cursor: pointer; font-size: 1.2em;
+    transition: all 0.2s;
+  }
+  .theme-toggle:hover {
+    border-color: var(--accent-color); background: var(--accent-light);
+  }
+
+  .subtitle { text-align: center; color: var(--text-secondary); margin-bottom: 30px; }
 
   .mode-toggle {
     display: flex; gap: 10px; justify-content: center; margin-bottom: 20px;
   }
   .mode-btn {
-    padding: 10px 24px; border: 2px solid #ddd; background: #fff; border-radius: 8px;
+    padding: 10px 24px; border: 2px solid var(--border-color);
+    background: var(--bg-secondary); border-radius: 8px;
     cursor: pointer; font-size: 1em; font-weight: 600; transition: all 0.2s;
+    color: var(--text-primary);
   }
   .mode-btn.active {
-    background: #4a90d9; color: #fff; border-color: #4a90d9;
+    background: var(--accent-color); color: #fff; border-color: var(--accent-color);
   }
   .mode-btn:hover:not(.active) {
-    border-color: #4a90d9; background: #f0f6ff;
+    border-color: var(--accent-color); background: var(--accent-light);
   }
 
   .upload-area {
-    border: 3px dashed #ccc; border-radius: 12px; padding: 60px 20px;
+    border: 3px dashed var(--border-color-light); border-radius: 12px; padding: 60px 20px;
     text-align: center; cursor: pointer; transition: border-color 0.2s;
-    background: #fff;
+    background: var(--bg-secondary);
   }
-  .upload-area:hover, .upload-area.dragover { border-color: #4a90d9; background: #f0f6ff; }
+  .upload-area:hover, .upload-area.dragover {
+    border-color: var(--accent-color); background: var(--accent-light);
+  }
   .upload-area input { display: none; }
-  .upload-area p { font-size: 1.1em; color: #666; }
+  .upload-area p { font-size: 1.1em; color: var(--text-secondary); }
   .upload-area .icon { font-size: 2.4em; margin-bottom: 10px; }
 
   .text-input-area {
-    background: #fff; border-radius: 12px; padding: 20px;
+    background: var(--bg-secondary); border-radius: 12px; padding: 20px;
   }
   .text-input-area textarea {
-    width: 100%; min-height: 200px; padding: 12px; border: 2px solid #ddd;
+    width: 100%; min-height: 200px; padding: 12px; border: 2px solid var(--border-color);
     border-radius: 8px; font-size: 1.1em; resize: vertical; font-family: system-ui, sans-serif;
+    background: var(--input-bg); color: var(--text-primary);
   }
   .text-input-area textarea:focus {
-    outline: none; border-color: #4a90d9;
+    outline: none; border-color: var(--accent-color);
   }
   .text-extract-btn {
     margin-top: 15px; text-align: center;
   }
 
-  .cropper-section { background: #fff; border-radius: 12px; padding: 20px; margin-top: 20px; }
+  .cropper-section {
+    background: var(--bg-secondary); border-radius: 12px; padding: 20px; margin-top: 20px;
+  }
   .cropper-wrapper { max-height: 70vh; overflow: hidden; }
   .cropper-wrapper img { max-width: 100%; display: block; }
   .cropper-buttons { margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
   .cards-section { margin-top: 20px; }
   .card-item {
-    background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    background: var(--bg-secondary); border-radius: 10px; padding: 16px; margin-bottom: 12px;
+    box-shadow: 0 1px 3px var(--shadow);
   }
   .card-item .card-header {
     display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
   }
-  .card-item .japanese { font-size: 1.6em; font-weight: bold; }
+  .card-item .japanese { font-size: 1.6em; font-weight: bold; color: var(--text-primary); }
   .card-item .field { margin-bottom: 8px; }
-  .card-item label { font-size: 0.85em; color: #666; display: block; margin-bottom: 2px; }
+  .card-item label { font-size: 0.85em; color: var(--text-secondary); display: block; margin-bottom: 2px; }
   .card-item input, .card-item textarea {
-    width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px;
-    font-size: 0.95em;
+    width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px;
+    font-size: 0.95em; background: var(--input-bg); color: var(--text-primary);
   }
   .card-item textarea { resize: vertical; min-height: 40px; }
   .remove-btn {
-    background: none; border: none; color: #999; font-size: 1.4em; cursor: pointer;
+    background: none; border: none; color: var(--text-tertiary); font-size: 1.4em; cursor: pointer;
     padding: 0 6px;
   }
   .remove-btn:hover { color: #e44; }
 
   .generate-section { margin-top: 20px; text-align: center; }
   .deck-name-input {
-    padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1em;
+    padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 1em;
     width: 300px; max-width: 100%; margin-bottom: 15px;
+    background: var(--input-bg); color: var(--text-primary);
   }
 
   .btn {
     padding: 12px 28px; border: none; border-radius: 8px; font-size: 1em;
     cursor: pointer; transition: background 0.2s; font-weight: 600;
   }
-  .btn-primary { background: #4a90d9; color: #fff; }
-  .btn-primary:hover { background: #357abd; }
-  .btn-primary:disabled { background: #a0c4e8; cursor: not-allowed; }
-  .btn-secondary { background: #eee; color: #333; }
-  .btn-secondary:hover { background: #ddd; }
+  .btn-primary { background: var(--accent-color); color: #fff; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-primary:disabled { background: var(--accent-disabled); cursor: not-allowed; }
+  .btn-secondary {
+    background: var(--bg-secondary); color: var(--text-primary);
+    border: 1px solid var(--border-color);
+  }
+  .btn-secondary:hover { background: var(--accent-light); }
   .btn-success { background: #4caf50; color: #fff; }
   .btn-success:hover { background: #43a047; }
   .btn:disabled { opacity: 0.75; cursor: not-allowed; }
@@ -100,12 +173,12 @@
     text-align: center; margin-top: 15px; padding: 12px; border-radius: 8px; display: flex;
     align-items: center; justify-content: center; gap: 8px;
   }
-  .status.loading { background: #e3f2fd; color: #1565c0; }
-  .status.error { background: #ffebee; color: #c62828; }
-  .status.success { background: #e8f5e9; color: #2e7d32; }
+  .status.loading { background: var(--loading-bg); color: var(--loading-text); }
+  .status.error { background: var(--error-bg); color: var(--error-text); }
+  .status.success { background: var(--success-bg); color: var(--success-text); }
 
   .spinner {
-    display: inline-block; width: 18px; height: 18px; border: 3px solid #1565c0;
+    display: inline-block; width: 18px; height: 18px; border: 3px solid var(--loading-text);
     border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -113,7 +186,12 @@
 </head>
 <body>
 <div id="app" class="container">
-  <h1>Kioku</h1>
+  <div class="header-controls">
+    <h1>Kioku</h1>
+    <button class="theme-toggle" @click="toggleTheme" title="Toggle dark mode">
+      {{ theme === 'dark' ? '☼' : '☾' }}
+    </button>
+  </div>
   <p class="subtitle">Upload a photo of, or paste Japanese text to generate flashcards with audio</p>
 
   <div class="mode-toggle">
@@ -211,6 +289,7 @@ const { createApp } = Vue;
 createApp({
   data() {
     return {
+      theme: localStorage.getItem("theme") || "light",
       inputMode: "image",
       textInput: "",
       dragover: false,
@@ -226,12 +305,21 @@ createApp({
       generateStatus: { type: "", message: "" },
     };
   },
+  mounted() {
+    // Apply saved theme on mount
+    document.documentElement.setAttribute("data-theme", this.theme);
+  },
   computed: {
     showCropper() {
       return Boolean(this.imageSrc);
     },
   },
   methods: {
+    toggleTheme() {
+      this.theme = this.theme === "light" ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", this.theme);
+      localStorage.setItem("theme", this.theme);
+    },
     switchMode(mode) {
       this.inputMode = mode;
       this.cards = [];

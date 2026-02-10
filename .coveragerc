@@ -1,0 +1,15 @@
+[run]
+source = kioku
+omit =
+    */tests/*
+    */__init__.py
+    */site-packages/*
+    */.venv/*
+
+[report]
+precision = 2
+show_missing = True
+skip_covered = False
+
+[html]
+directory = htmlcov

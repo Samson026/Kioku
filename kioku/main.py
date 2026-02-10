@@ -5,11 +5,12 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from groq import AuthenticationError, APIError
 
-from kioku.models import ExtractionResult, GenerateRequest
+from kioku.models import ExtractionResult, GenerateRequest, TextExtractionRequest
 from kioku.services.anki_builder import add_cards
 from kioku.services.audio_generator import generate_audio
-from kioku.services.image_processor import extract_cards
+from kioku.services.image_processor import enrich_text, extract_cards
 
 load_dotenv()
 
@@ -25,10 +26,36 @@ app.add_middleware(
 
 @app.post("/api/extract", response_model=ExtractionResult)
 async def api_extract(file: UploadFile = File(...)):
-    image_bytes = await file.read()
-    mime_type = file.content_type or "image/jpeg"
-    cards = extract_cards(image_bytes, mime_type)
-    return ExtractionResult(cards=cards)
+    try:
+        image_bytes = await file.read()
+        mime_type = file.content_type or "image/jpeg"
+        cards = extract_cards(image_bytes, mime_type)
+        return ExtractionResult(cards=cards)
+    except AuthenticationError as err:
+        raise HTTPException(
+            status_code=401,
+            detail="GROQ_API_KEY is invalid or not set. Please check your .env file.",
+        ) from err
+    except APIError as err:
+        raise HTTPException(status_code=502, detail=f"Groq API error: {err}") from err
+    except RuntimeError as err:
+        raise HTTPException(status_code=500, detail=str(err)) from err
+
+
+@app.post("/api/extract-text", response_model=ExtractionResult)
+async def api_extract_text(req: TextExtractionRequest):
+    try:
+        cards = enrich_text(req.text)
+        return ExtractionResult(cards=cards)
+    except AuthenticationError as err:
+        raise HTTPException(
+            status_code=401,
+            detail="GROQ_API_KEY is invalid or not set. Please check your .env file.",
+        ) from err
+    except APIError as err:
+        raise HTTPException(status_code=502, detail=f"Groq API error: {err}") from err
+    except RuntimeError as err:
+        raise HTTPException(status_code=500, detail=str(err)) from err
 
 
 @app.post("/api/generate")

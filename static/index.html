@@ -12,6 +12,20 @@
   h1 { text-align: center; margin-bottom: 8px; font-size: 1.8em; }
   .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
 
+  .mode-toggle {
+    display: flex; gap: 10px; justify-content: center; margin-bottom: 20px;
+  }
+  .mode-btn {
+    padding: 10px 24px; border: 2px solid #ddd; background: #fff; border-radius: 8px;
+    cursor: pointer; font-size: 1em; font-weight: 600; transition: all 0.2s;
+  }
+  .mode-btn.active {
+    background: #4a90d9; color: #fff; border-color: #4a90d9;
+  }
+  .mode-btn:hover:not(.active) {
+    border-color: #4a90d9; background: #f0f6ff;
+  }
+
   .upload-area {
     border: 3px dashed #ccc; border-radius: 12px; padding: 60px 20px;
     text-align: center; cursor: pointer; transition: border-color 0.2s;
@@ -21,6 +35,20 @@
   .upload-area input { display: none; }
   .upload-area p { font-size: 1.1em; color: #666; }
   .upload-area .icon { font-size: 2.4em; margin-bottom: 10px; }
+
+  .text-input-area {
+    background: #fff; border-radius: 12px; padding: 20px;
+  }
+  .text-input-area textarea {
+    width: 100%; min-height: 200px; padding: 12px; border: 2px solid #ddd;
+    border-radius: 8px; font-size: 1.1em; resize: vertical; font-family: system-ui, sans-serif;
+  }
+  .text-input-area textarea:focus {
+    outline: none; border-color: #4a90d9;
+  }
+  .text-extract-btn {
+    margin-top: 15px; text-align: center;
+  }
 
   .cropper-section { background: #fff; border-radius: 12px; padding: 20px; margin-top: 20px; }
   .cropper-wrapper { max-height: 70vh; overflow: hidden; }
@@ -86,10 +114,15 @@
 <body>
 <div id="app" class="container">
   <h1>Kioku</h1>
-  <p class="subtitle">Upload a photo of Japanese text to generate flashcards with audio</p>
+  <p class="subtitle">Upload a photo of, or paste Japanese text to generate flashcards with audio</p>
+
+  <div class="mode-toggle">
+    <button class="mode-btn" :class="{ active: inputMode === 'image' }" @click="switchMode('image')">Image</button>
+    <button class="mode-btn" :class="{ active: inputMode === 'text' }" @click="switchMode('text')">Text</button>
+  </div>
 
   <div
-    v-if="!showCropper"
+    v-if="inputMode === 'image' && !showCropper"
     class="upload-area"
     :class="{ dragover }"
     @click="openFilePicker"
@@ -102,7 +135,19 @@
     <input ref="fileInput" type="file" accept="image/*" @change="onFileChange">
   </div>
 
-  <div v-if="showCropper" class="cropper-section">
+  <div v-if="inputMode === 'text'" class="text-input-area">
+    <textarea
+      v-model="textInput"
+      placeholder="Paste Japanese text here..."
+      @keydown.ctrl.enter="extractFromText"
+      @keydown.meta.enter="extractFromText"
+    ></textarea>
+    <div class="text-extract-btn">
+      <button class="btn btn-primary" :disabled="extracting || !textInput.trim()" @click="extractFromText">Extract Cards</button>
+    </div>
+  </div>
+
+  <div v-if="inputMode === 'image' && showCropper" class="cropper-section">
     <div class="cropper-wrapper">
       <img ref="cropperImage" :src="imageSrc" alt="Preview" @load="onCropperImageLoad">
     </div>
@@ -166,6 +211,8 @@ const { createApp } = Vue;
 createApp({
   data() {
     return {
+      inputMode: "image",
+      textInput: "",
       dragover: false,
       imageSrc: "",
       originalFile: null,
@@ -185,6 +232,15 @@ createApp({
     },
   },
   methods: {
+    switchMode(mode) {
+      this.inputMode = mode;
+      this.cards = [];
+      this.extractStatus = { type: "", message: "" };
+      this.generateStatus = { type: "", message: "" };
+      if (mode === "text") {
+        this.resetAll();
+      }
+    },
     openFilePicker() {
       this.$refs.fileInput.click();
     },
@@ -266,10 +322,61 @@ createApp({
 
       try {
         const resp = await fetch("/api/extract", { method: "POST", body: formData });
-        if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
+        if (!resp.ok) {
+          const errorData = await resp.json().catch(() => ({}));
+          const detail = errorData.detail || `Server error: ${resp.status}`;
+
+          if (detail.includes("GROQ_API_KEY")) {
+            this.extractStatus = {
+              type: "error",
+              message: "⚠️ GROQ_API_KEY is not configured. Please set it in your .env file."
+            };
+          } else {
+            this.extractStatus = { type: "error", message: `Extraction failed: ${detail}` };
+          }
+          return;
+        }
         const data = await resp.json();
         if (!data.cards || data.cards.length === 0) {
           this.extractStatus = { type: "error", message: "No Japanese text found in the image." };
+          return;
+        }
+        this.cards = data.cards;
+        this.extractStatus = { type: "success", message: `Found ${data.cards.length} card(s)` };
+      } catch (err) {
+        this.extractStatus = { type: "error", message: `Extraction failed: ${err.message}` };
+      } finally {
+        this.extracting = false;
+      }
+    },
+    async extractFromText() {
+      if (!this.textInput.trim()) return;
+      this.extracting = true;
+      this.extractStatus = { type: "loading", message: "Enriching Japanese text..." };
+
+      try {
+        const resp = await fetch("/api/extract-text", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: this.textInput }),
+        });
+        if (!resp.ok) {
+          const errorData = await resp.json().catch(() => ({}));
+          const detail = errorData.detail || `Server error: ${resp.status}`;
+
+          if (detail.includes("GROQ_API_KEY")) {
+            this.extractStatus = {
+              type: "error",
+              message: "⚠️ GROQ_API_KEY is not configured. Please set it in your .env file."
+            };
+          } else {
+            this.extractStatus = { type: "error", message: `Extraction failed: ${detail}` };
+          }
+          return;
+        }
+        const data = await resp.json();
+        if (!data.cards || data.cards.length === 0) {
+          this.extractStatus = { type: "error", message: "No cards could be generated from the text." };
           return;
         }
         this.cards = data.cards;

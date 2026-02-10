@@ -22,16 +22,12 @@ def _strip_code_fences(text: str) -> str:
     return cleaned
 
 
-def extract_cards(image_bytes: bytes, mime_type: str) -> list[CardItem]:
-    """OCR with Manga OCR, then enrich with a single Groq call."""
-    # --- OCR via Manga OCR (local, no API call) ---
-    image = Image.open(io.BytesIO(image_bytes))
-    ocr_text = _mocr(image)
+def enrich_text(text: str) -> list[CardItem]:
+    """Enrich Japanese text with readings, meanings, and examples via Groq."""
+    if not text or not text.strip():
+        raise RuntimeError("No text provided for enrichment.")
 
-    if not ocr_text or not ocr_text.strip():
-        raise RuntimeError("Manga OCR returned no text.")
-
-    logger.info("Manga OCR text: %s", ocr_text)
+    logger.info("Enriching text: %s", text)
 
     # --- Enrich via Groq (1 API call) ---
     api_key = os.environ.get("GROQ_API_KEY", "").strip()
@@ -43,7 +39,7 @@ def extract_cards(image_bytes: bytes, mime_type: str) -> list[CardItem]:
     client = Groq(api_key=api_key)
 
     prompt = (
-        "I will give you Japanese text extracted from an image via OCR. "
+        "I will give you Japanese text. "
         "For each sentence or phrase, produce:\n"
         "1. One entry for the complete sentence/phrase.\n"
         "2. One entry for each individual vocabulary word in that sentence. "
@@ -61,7 +57,7 @@ def extract_cards(image_bytes: bytes, mime_type: str) -> list[CardItem]:
         "IMPORTANT: Every field must be filled in. Never leave any field empty. "
         "Even if the text is incomplete or partial, provide your best translation.\n\n"
         "Return ONLY valid JSON. No other text.\n\n"
-        f"OCR text:\n{ocr_text}"
+        f"Japanese text:\n{text}"
     )
 
     response = client.chat.completions.create(
@@ -78,10 +74,10 @@ def extract_cards(image_bytes: bytes, mime_type: str) -> list[CardItem]:
 
     content = (response.choices[0].message.content or "").strip()
     logger.info("Groq raw response: %s", content)
-    text = _strip_code_fences(content)
+    clean_text = _strip_code_fences(content)
 
     try:
-        parsed = json.loads(text)
+        parsed = json.loads(clean_text)
     except json.JSONDecodeError as err:
         raise RuntimeError(f"Groq returned invalid JSON: {err}\nRaw: {content}") from err
 
@@ -120,8 +116,23 @@ def extract_cards(image_bytes: bytes, mime_type: str) -> list[CardItem]:
     if not cards:
         raise RuntimeError(
             f"No valid cards extracted.\n"
-            f"OCR text: {ocr_text}\n"
+            f"Input text: {text}\n"
             f"Groq response: {content}"
         )
 
     return cards
+
+
+def extract_cards(image_bytes: bytes, mime_type: str) -> list[CardItem]:
+    """OCR with Manga OCR, then enrich with a single Groq call."""
+    # --- OCR via Manga OCR (local, no API call) ---
+    image = Image.open(io.BytesIO(image_bytes))
+    ocr_text = _mocr(image)
+
+    if not ocr_text or not ocr_text.strip():
+        raise RuntimeError("Manga OCR returned no text.")
+
+    logger.info("Manga OCR text: %s", ocr_text)
+
+    # Delegate to enrich_text
+    return enrich_text(ocr_text)

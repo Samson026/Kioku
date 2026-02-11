@@ -1,4 +1,4 @@
-.PHONY: help install install-dev dev run test test-unit test-integration test-cov lint format type-check quality docker-build docker-run clean check-env
+.PHONY: help install install-dev dev run test test-unit test-integration test-cov lint format type-check quality build-wheel docker-build docker-run docker-save docker-deploy deploy clean check-env
 
 # Default target - show help
 help:
@@ -25,9 +25,20 @@ help:
 	@echo "  make type-check       Run mypy type checking"
 	@echo "  make quality          Run all quality checks (lint + type-check)"
 	@echo ""
+	@echo "Build:"
+	@echo "  make build-wheel      Build Python wheel into dist/"
+	@echo ""
 	@echo "Docker:"
-	@echo "  make docker-build     Build Docker image"
-	@echo "  make docker-run       Run Docker container"
+	@echo "  make docker-build        Build Docker image (builds wheel first)"
+	@echo "  make docker-run          Run Docker container directly"
+	@echo "  make docker-compose-up   Build and run with docker-compose (recommended)"
+	@echo "  make docker-compose-down Stop docker-compose services"
+	@echo "  make docker-compose-logs View docker-compose logs"
+	@echo "  make docker-save         Save Docker image to kioku.tar"
+	@echo "  make docker-deploy       Save and scp Docker image to PI_HOST"
+	@echo ""
+	@echo "Deploy:"
+	@echo "  make deploy           Scp wheel to PI_HOST"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean            Remove build artifacts and cache"
@@ -74,12 +85,40 @@ type-check:
 quality: lint type-check
 	@echo "All quality checks passed!"
 
+# Build targets
+build-wheel:
+	rm -rf dist/ build/
+	pip wheel --no-deps -w dist/ .
+
 # Docker targets
-docker-build:
+docker-build: build-wheel
 	docker build -t kioku:latest .
 
 docker-run:
-	docker run -p 8000:8000 --env-file .env kioku:latest
+	docker run -d -p 8000:8000 --env-file .env \
+		-v kioku-cache:/root/.cache/huggingface \
+		-e HF_HOME=/root/.cache/huggingface \
+		kioku:latest
+
+docker-compose-up: docker-build
+	docker-compose up -d
+
+docker-compose-down:
+	docker-compose down
+
+docker-compose-logs:
+	docker-compose logs -f
+
+docker-save:
+	docker save kioku:latest -o kioku.tar
+
+docker-deploy: docker-save
+	scp kioku.tar $(PI_HOST):~/
+	ssh $(PI_HOST) 'docker load -i ~/kioku.tar'
+
+# Deploy wheel directly
+deploy: build-wheel
+	scp dist/*.whl $(PI_HOST):~/
 
 # Utility targets
 check-env:
@@ -89,6 +128,7 @@ check-env:
 	fi
 
 clean:
+	rm -rf dist/ build/ *.egg-info/
 	rm -rf .pytest_cache/
 	rm -rf htmlcov/
 	rm -rf .coverage

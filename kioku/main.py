@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 
 import uvicorn
 from dotenv import load_dotenv
@@ -84,7 +85,8 @@ async def api_generate(req: GenerateRequest):
         raise HTTPException(status_code=502, detail=str(err)) from err
 
 
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+_static_dir = Path(__file__).parent / "static"
+app.mount("/", StaticFiles(directory=_static_dir, html=True), name="static")
 
 if __name__ == "__main__":
     uvicorn.run("kioku.main:app", host="0.0.0.0", port=8000, reload=True)

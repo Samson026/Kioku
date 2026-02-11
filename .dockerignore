@@ -1,0 +1,17 @@
+tests/
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+.coveragerc
+.flake8
+.env
+.env.example
+.git/
+.gitignore
+Makefile
+pyproject.toml
+pytest.ini
+requirements-dev.txt
+*.pyc
+__pycache__/

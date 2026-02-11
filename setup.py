@@ -18,6 +18,7 @@ setup(
     version="0.1.0",
     description="Generate Japanese Anki cards from images with audio",
     packages=find_packages(include=["kioku", "kioku.*"]),
+    package_data={"kioku": ["static/*"]},
     install_requires=load_requirements(),
     entry_points={
         "console_scripts": [

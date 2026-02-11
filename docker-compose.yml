@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  kioku:
+    image: kioku:latest
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    volumes:
+      - huggingface-cache:/root/.cache/huggingface
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+
+volumes:
+  huggingface-cache:

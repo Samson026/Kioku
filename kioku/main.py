@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from groq import AuthenticationError, APIError
 
 from kioku.models import ExtractionResult, GenerateRequest, TextExtractionRequest
-from kioku.services.anki_builder import add_cards
+from kioku.services.anki_builder import add_cards, sync_anki
 from kioku.services.audio_generator import generate_audio
 from kioku.services.image_processor import enrich_text, extract_cards
 
@@ -80,6 +80,14 @@ async def api_generate(req: GenerateRequest):
             audio_map[f"sentence_{i}.mp3"] = audio_cache[card.example_sentence]
 
         added = add_cards(req.cards, audio_map, req.deck_name)
+
+        # Trigger sync with AnkiWeb after adding cards
+        try:
+            sync_anki()
+        except RuntimeError:
+            # Sync failed, but cards were added successfully
+            pass
+
         return {"added": added}
     except RuntimeError as err:
         raise HTTPException(status_code=502, detail=str(err)) from err

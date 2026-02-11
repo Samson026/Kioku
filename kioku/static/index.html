@@ -182,6 +182,26 @@
     border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  .card-filter-container {
+    display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 20px;
+    font-size: 0.9em; color: var(--text-secondary);
+  }
+  .toggle-switch {
+    position: relative; display: inline-block; width: 48px; height: 24px;
+  }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+    background-color: var(--border-color); border-radius: 24px; transition: 0.3s;
+  }
+  .toggle-slider:before {
+    position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
+    background-color: white; border-radius: 50%; transition: 0.3s;
+  }
+  input:checked + .toggle-slider { background-color: var(--accent-color); }
+  input:checked + .toggle-slider:before { transform: translateX(24px); }
+  .toggle-slider:hover { opacity: 0.9; }
 </style>
 </head>
 <body>
@@ -197,6 +217,15 @@
   <div class="mode-toggle">
     <button class="mode-btn" :class="{ active: inputMode === 'image' }" @click="switchMode('image')">Image</button>
     <button class="mode-btn" :class="{ active: inputMode === 'text' }" @click="switchMode('text')">Text</button>
+  </div>
+
+  <div class="card-filter-container">
+    <span>All Cards</span>
+    <label class="toggle-switch">
+      <input type="checkbox" :checked="cardMode === 'sentence'" @change="cardMode = $event.target.checked ? 'sentence' : 'all'">
+      <span class="toggle-slider"></span>
+    </label>
+    <span>Sentence Only</span>
   </div>
 
   <div
@@ -245,8 +274,8 @@
   </div>
 
   <div v-if="cards.length > 0" class="cards-section">
-    <h2 style="margin-bottom: 15px;">Extracted Cards</h2>
-    <div class="card-item" v-for="(card, i) in cards" :key="i">
+    <h2 style="margin-bottom: 15px;">Extracted Cards ({{ filteredCards.length }}<span v-if="filteredCards.length !== cards.length"> of {{ cards.length }}</span>)</h2>
+    <div class="card-item" v-for="(card, i) in filteredCards" :key="i">
       <div class="card-header">
         <span class="japanese">{{ card.japanese }}</span>
         <button class="remove-btn" title="Remove" @click="removeCard(i)">&times;</button>
@@ -270,8 +299,11 @@
     </div>
   </div>
 
-  <div v-if="cards.length > 0" class="generate-section">
-    <input type="text" class="deck-name-input" v-model="deckName" placeholder="Deck name">
+  <div v-if="filteredCards.length > 0" class="generate-section">
+    <label for="deck-name" style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 0.9em;">
+      Anki deck name (cards will be added to this deck)
+    </label>
+    <input id="deck-name" type="text" class="deck-name-input" v-model="deckName" placeholder="Deck name">
     <br>
     <button class="btn btn-success" :disabled="generating" @click="generateToAnki">Add to Anki</button>
     <div v-if="generateStatus.type" class="status" :class="generateStatus.type">
@@ -290,7 +322,8 @@ createApp({
   data() {
     return {
       theme: localStorage.getItem("theme") || "light",
-      inputMode: "image",
+      inputMode: localStorage.getItem("inputMode") || "image",
+      cardMode: localStorage.getItem("cardMode") || "all",
       textInput: "",
       dragover: false,
       imageSrc: "",
@@ -298,7 +331,7 @@ createApp({
       cropper: null,
       objectUrl: null,
       cards: [],
-      deckName: "ankiGen",
+      deckName: "Kioku",
       extracting: false,
       generating: false,
       extractStatus: { type: "", message: "" },
@@ -312,6 +345,20 @@ createApp({
   computed: {
     showCropper() {
       return Boolean(this.imageSrc);
+    },
+    filteredCards() {
+      if (this.cardMode === 'sentence') {
+        return this.cards.filter(c => c.japanese === c.example_sentence);
+      }
+      return this.cards;
+    },
+  },
+  watch: {
+    inputMode(newValue) {
+      localStorage.setItem("inputMode", newValue);
+    },
+    cardMode(newValue) {
+      localStorage.setItem("cardMode", newValue);
     },
   },
   methods: {
@@ -372,7 +419,7 @@ createApp({
       this.imageSrc = "";
       this.originalFile = null;
       this.cards = [];
-      this.deckName = "ankiGen";
+      this.deckName = "Kioku";
       this.extracting = false;
       this.generating = false;
       this.extractStatus = { type: "", message: "" };
@@ -476,7 +523,9 @@ createApp({
       }
     },
     removeCard(index) {
-      this.cards.splice(index, 1);
+      const card = this.filteredCards[index];
+      const realIndex = this.cards.indexOf(card);
+      if (realIndex !== -1) this.cards.splice(realIndex, 1);
       if (this.cards.length === 0) this.generateStatus = { type: "", message: "" };
     },
     async generateToAnki() {
@@ -491,7 +540,7 @@ createApp({
         const resp = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cards: this.cards, deck_name: this.deckName }),
+          body: JSON.stringify({ cards: this.filteredCards, deck_name: this.deckName }),
         });
 
         const payload = await resp.json().catch(() => ({}));
@@ -502,7 +551,7 @@ createApp({
 
         this.generateStatus = {
           type: "success",
-          message: `Added ${payload.added} card(s) to ${this.deckName} deck.`,
+          message: `Added ${payload.added} card(s) to ${this.deckName} deck and synced to AnkiWeb.`,
         };
       } catch (err) {
         this.generateStatus = { type: "error", message: `Generation failed: ${err.message}` };

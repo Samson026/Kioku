@@ -71,6 +71,11 @@ def _ensure_deck(deck_name: str):
     _anki_request("createDeck", deck=deck_name)
 
 
+def sync_anki():
+    """Trigger AnkiConnect to sync with AnkiWeb."""
+    _anki_request("sync")
+
+
 def add_cards(
     cards: list[CardItem],
     audio_map: dict[str, bytes],

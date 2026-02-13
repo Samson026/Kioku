@@ -1,7 +1,7 @@
 # Kioku
 
 Generate Japanese Anki cards from an image:
-- Extract Japanese text with Manga OCR
+- Extract English text with EasyOCR
 - Enrich reading/meaning/example fields with Groq
 - Generate Japanese audio with Edge TTS
 - Push notes directly into Anki via AnkiConnect
@@ -39,7 +39,7 @@ docker run -p 8000:8000 --env-file .env kioku:latest
 
 3. Open `http://localhost:8000` in your browser.
 
-**Note:** The first run will be slow as the Manga OCR model is downloaded (~400 MB). Subsequent starts will be fast.
+**Note:** The first run will be slow as EasyOCR model files are downloaded. Subsequent starts will be faster.
 
 ## Configuration
 

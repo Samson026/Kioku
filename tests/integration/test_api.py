@@ -9,7 +9,7 @@ import pytest
 class TestExtractEndpoint:
     """Tests for POST /api/extract endpoint."""
 
-    def test_extract_success(self, test_client, sample_image_bytes, mock_pytesseract, mock_groq_client):
+    def test_extract_success(self, test_client, sample_image_bytes, mock_easyocr, mock_groq_client):
         """Test successful image extraction."""
         files = {"file": ("test.png", io.BytesIO(sample_image_bytes), "image/png")}
         response = test_client.post("/api/extract", files=files)
@@ -26,7 +26,7 @@ class TestExtractEndpoint:
         response = test_client.post("/api/extract")
         assert response.status_code == 422
 
-    def test_extract_invalid_api_key(self, test_client, sample_image_bytes, mock_pytesseract, monkeypatch):
+    def test_extract_invalid_api_key(self, test_client, sample_image_bytes, mock_easyocr, monkeypatch):
         """Test extraction with invalid API key returns 401."""
         from groq import AuthenticationError
 
@@ -58,9 +58,9 @@ class TestExtractEndpoint:
         assert response.status_code == 401
         assert "GROQ_API_KEY" in response.json()["detail"]
 
-    def test_extract_empty_ocr_result(self, test_client, sample_image_bytes, mock_pytesseract):
+    def test_extract_empty_ocr_result(self, test_client, sample_image_bytes, mock_easyocr):
         """Test extraction with empty OCR result returns 500."""
-        mock_pytesseract.return_value = ""
+        mock_easyocr.readtext.return_value = []
 
         files = {"file": ("test.png", io.BytesIO(sample_image_bytes), "image/png")}
         response = test_client.post("/api/extract", files=files)

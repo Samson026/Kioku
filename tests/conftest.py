@@ -94,11 +94,15 @@ def mock_groq_client(monkeypatch):
 
 
 @pytest.fixture
-def mock_pytesseract(monkeypatch):
-    """Mock pytesseract to avoid requiring Tesseract binary."""
-    mock_fn = Mock(return_value="Hello")
-    monkeypatch.setattr("kioku.services.image_processor.pytesseract.image_to_string", mock_fn)
-    return mock_fn
+def mock_easyocr(monkeypatch):
+    """Mock easyocr reader to avoid loading OCR model weights in tests."""
+    mock_reader = Mock()
+    mock_reader.readtext.return_value = ["Hello"]
+    monkeypatch.setattr(
+        "kioku.services.image_processor._get_easyocr_reader",
+        Mock(return_value=mock_reader),
+    )
+    return mock_reader
 
 
 @pytest.fixture

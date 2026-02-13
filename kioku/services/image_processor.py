@@ -1,15 +1,121 @@
-import io
+import importlib
 import json
 import logging
 import os
 
-import pytesseract
 from groq import Groq
-from PIL import Image
 
 from kioku.models import CardItem
 
 logger = logging.getLogger(__name__)
+_EASYOCR_READER = None
+
+
+def _normalize_text(text: str) -> str:
+    return " ".join(str(text or "").strip().lower().split())
+
+
+def _is_sentence_like(text: str) -> bool:
+    value = str(text or "").strip()
+    if not value:
+        return False
+    if any(ch in value for ch in ".!?;:"):
+        return True
+    return len(value.split()) >= 3
+
+
+def _finalize_cards(cards: list[CardItem], source_text: str) -> list[CardItem]:
+    source = source_text.strip()
+    source_norm = _normalize_text(source)
+    sentence_card: CardItem | None = None
+
+    if source_norm:
+        for card in cards:
+            if _normalize_text(card.meaning) == source_norm:
+                sentence_card = card
+                break
+
+    if sentence_card is None and cards and source_norm:
+        source_words = set(source_norm.split())
+        best_score = -1.0
+        best_card: CardItem | None = None
+        for card in cards:
+            meaning_norm = _normalize_text(card.meaning)
+            if not meaning_norm:
+                continue
+
+            if not _is_sentence_like(card.meaning):
+                continue
+
+            overlap = 0
+            meaning_words = meaning_norm.split()
+            if meaning_words:
+                overlap = sum(1 for word in meaning_words if word in source_words)
+
+            score = 0.0
+            if meaning_norm in source_norm:
+                score += 2.0
+            score += overlap / max(len(meaning_words), 1)
+            if _is_sentence_like(card.meaning):
+                score += 1.0
+
+            if score > best_score:
+                best_score = score
+                best_card = card
+
+        if best_card is not None and best_score > 0:
+            sentence_card = best_card
+
+    if sentence_card is None and cards and source:
+        best_japanese = max(cards, key=lambda c: len(c.japanese)).japanese
+        sentence_card = CardItem(
+            japanese=best_japanese,
+            meaning=source,
+            example_sentence=source,
+            example_translation=best_japanese,
+        )
+        cards = [sentence_card, *cards]
+    elif sentence_card is not None:
+        sentence_card = CardItem(
+            japanese=sentence_card.japanese,
+            meaning=sentence_card.meaning,
+            example_sentence=sentence_card.meaning,
+            example_translation=sentence_card.japanese,
+        )
+        cards = [
+            sentence_card if (c.japanese == sentence_card.japanese and c.meaning == sentence_card.meaning) else c
+            for c in cards
+        ]
+
+    deduped: list[CardItem] = []
+    seen: set[tuple[str, str]] = set()
+    for card in cards:
+        key = (card.japanese, card.meaning)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(card)
+
+    deduped.sort(
+        key=lambda c: 0 if _normalize_text(c.meaning) == _normalize_text(c.example_sentence) else 1
+    )
+    return deduped
+
+
+def _get_easyocr_reader():
+    global _EASYOCR_READER
+    if _EASYOCR_READER is not None:
+        return _EASYOCR_READER
+
+    try:
+        easyocr_module = importlib.import_module("easyocr")
+    except ImportError as err:
+        raise RuntimeError(
+            "easyocr is not installed. Install project dependencies and retry."
+        ) from err
+
+    _EASYOCR_READER = easyocr_module.Reader(["en"], gpu=False)
+    return _EASYOCR_READER
 
 
 def _strip_code_fences(text: str) -> str:
@@ -48,6 +154,8 @@ def enrich_text(text: str) -> list[CardItem]:
         '- "meaning": the original English text (for sentences give the full English sentence, for words give the English dictionary meaning)\n'
         '- "example_sentence": a natural English example sentence using the word or phrase\n'
         '- "example_translation": Japanese translation of the example_sentence\n\n'
+        "For the full sentence entry only: set example_sentence exactly equal to meaning, "
+        "and example_translation exactly equal to japanese.\n\n"
         "IMPORTANT: Every field must be filled in. Never leave any field empty. "
         "Even if the text is incomplete or partial, provide your best translation.\n\n"
         "Return ONLY valid JSON. No other text.\n\n"
@@ -79,23 +187,21 @@ def enrich_text(text: str) -> list[CardItem]:
         raise RuntimeError(f"Groq returned non-list JSON: {content}")
 
     cards: list[CardItem] = []
-    seen: set[str] = set()
     for obj in parsed:
         if not isinstance(obj, dict):
             continue
 
         jp = str(obj.get("japanese", "")).strip()
-        if not jp or jp in seen:
+        if not jp:
             continue
 
         meaning = str(obj.get("meaning", "")).strip()
-        example_sentence = str(obj.get("example_sentence", "")).strip() or jp
+        example_sentence = str(obj.get("example_sentence", "")).strip() or meaning
         example_translation = str(obj.get("example_translation", "")).strip()
 
         if not meaning:
             continue
 
-        seen.add(jp)
         cards.append(
             CardItem(
                 japanese=jp,
@@ -104,6 +210,8 @@ def enrich_text(text: str) -> list[CardItem]:
                 example_translation=example_translation,
             )
         )
+
+    cards = _finalize_cards(cards, text)
 
     if not cards:
         raise RuntimeError(
@@ -116,10 +224,11 @@ def enrich_text(text: str) -> list[CardItem]:
 
 
 def extract_cards(image_bytes: bytes, mime_type: str) -> list[CardItem]:
-    """OCR with pytesseract, then enrich with a single Groq call."""
-    # --- OCR via pytesseract (local, no API call) ---
-    image = Image.open(io.BytesIO(image_bytes))
-    ocr_text = pytesseract.image_to_string(image, lang="eng")
+    """OCR with easyocr, then enrich with a single Groq call."""
+    # --- OCR via easyocr (local, no API call) ---
+    ocr_reader = _get_easyocr_reader()
+    ocr_lines = ocr_reader.readtext(image_bytes, detail=0, paragraph=True)
+    ocr_text = "\n".join(str(line).strip() for line in ocr_lines if str(line).strip())
 
     if not ocr_text or not ocr_text.strip():
         raise RuntimeError("OCR returned no text.")

@@ -344,7 +344,7 @@ createApp({
     },
     filteredCards() {
       if (this.cardMode === 'sentence') {
-        return this.cards.filter(c => c.japanese === c.example_sentence);
+        return this.cards.filter((card) => this.isSentenceCard(card));
       }
       return this.cards;
     },
@@ -358,6 +358,12 @@ createApp({
     },
   },
   methods: {
+    normalizeText(text) {
+      return String(text || "").trim().replace(/\s+/g, " ").toLowerCase();
+    },
+    isSentenceCard(card) {
+      return this.normalizeText(card.meaning) === this.normalizeText(card.example_sentence);
+    },
     toggleTheme() {
       this.theme = this.theme === "light" ? "dark" : "light";
       document.documentElement.setAttribute("data-theme", this.theme);

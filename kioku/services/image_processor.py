@@ -3,15 +3,13 @@ import json
 import logging
 import os
 
+import pytesseract
 from groq import Groq
-from manga_ocr import MangaOcr
 from PIL import Image
 
 from kioku.models import CardItem
 
 logger = logging.getLogger(__name__)
-
-_mocr = MangaOcr()
 
 
 def _strip_code_fences(text: str) -> str:
@@ -23,7 +21,7 @@ def _strip_code_fences(text: str) -> str:
 
 
 def enrich_text(text: str) -> list[CardItem]:
-    """Enrich Japanese text with readings, meanings, and examples via Groq."""
+    """Translate English text into Japanese with readings, meanings, and examples via Groq."""
     if not text or not text.strip():
         raise RuntimeError("No text provided for enrichment.")
 
@@ -39,25 +37,21 @@ def enrich_text(text: str) -> list[CardItem]:
     client = Groq(api_key=api_key)
 
     prompt = (
-        "I will give you Japanese text. "
+        "I will give you English text. "
         "For each sentence or phrase, produce:\n"
-        "1. One entry for the complete sentence/phrase.\n"
-        "2. One entry for each individual vocabulary word in that sentence. "
+        "1. One entry for the complete sentence/phrase translated into Japanese.\n"
+        "2. One entry for each individual vocabulary word in that sentence translated into Japanese. "
         "Only include content words (nouns, verbs, adjectives, adverbs). "
-        "Do NOT include particles (は、が、を、に、で、と、の、も、へ、から、まで、より、か、よ、ね、な、けど、ば、て、たり), "
-        "conjunctions, or punctuation.\n\n"
+        "Do NOT include articles, prepositions, conjunctions, or punctuation.\n\n"
         "Return a JSON array. Each entry must have exactly these fields:\n"
-        '- "japanese": the text (full sentence OR single word)\n'
-        '- "reading": full hiragana reading\n'
-        '- "meaning": English meaning (for sentences give the overall meaning, for words give the dictionary meaning)\n'
-        '- "example_sentence": for sentences use the sentence itself; '
-        "for words use the sentence it came from; "
-        "for standalone words that didn't come from a sentence, create a natural example sentence using the word\n"
-        '- "example_translation": English translation of the example_sentence\n\n'
+        '- "japanese": the Japanese translation (full sentence OR single word in kanji/kana)\n'
+        '- "meaning": the original English text (for sentences give the full English sentence, for words give the English dictionary meaning)\n'
+        '- "example_sentence": a natural English example sentence using the word or phrase\n'
+        '- "example_translation": Japanese translation of the example_sentence\n\n'
         "IMPORTANT: Every field must be filled in. Never leave any field empty. "
         "Even if the text is incomplete or partial, provide your best translation.\n\n"
         "Return ONLY valid JSON. No other text.\n\n"
-        f"Japanese text:\n{text}"
+        f"English text:\n{text}"
     )
 
     response = client.chat.completions.create(
@@ -94,19 +88,17 @@ def enrich_text(text: str) -> list[CardItem]:
         if not jp or jp in seen:
             continue
 
-        reading = str(obj.get("reading", "")).strip()
         meaning = str(obj.get("meaning", "")).strip()
         example_sentence = str(obj.get("example_sentence", "")).strip() or jp
         example_translation = str(obj.get("example_translation", "")).strip()
 
-        if not reading:
+        if not meaning:
             continue
 
         seen.add(jp)
         cards.append(
             CardItem(
                 japanese=jp,
-                reading=reading,
                 meaning=meaning,
                 example_sentence=example_sentence,
                 example_translation=example_translation,
@@ -124,15 +116,15 @@ def enrich_text(text: str) -> list[CardItem]:
 
 
 def extract_cards(image_bytes: bytes, mime_type: str) -> list[CardItem]:
-    """OCR with Manga OCR, then enrich with a single Groq call."""
-    # --- OCR via Manga OCR (local, no API call) ---
+    """OCR with pytesseract, then enrich with a single Groq call."""
+    # --- OCR via pytesseract (local, no API call) ---
     image = Image.open(io.BytesIO(image_bytes))
-    ocr_text = _mocr(image)
+    ocr_text = pytesseract.image_to_string(image, lang="eng")
 
     if not ocr_text or not ocr_text.strip():
-        raise RuntimeError("Manga OCR returned no text.")
+        raise RuntimeError("OCR returned no text.")
 
-    logger.info("Manga OCR text: %s", ocr_text)
+    logger.info("OCR text: %s", ocr_text)
 
     # Delegate to enrich_text
     return enrich_text(ocr_text)

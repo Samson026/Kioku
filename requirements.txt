@@ -1,7 +1,7 @@
 fastapi
 uvicorn
 groq
-manga-ocr
+pytesseract
 Pillow
 edge-tts
 python-dotenv

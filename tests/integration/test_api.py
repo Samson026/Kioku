@@ -9,7 +9,7 @@ import pytest
 class TestExtractEndpoint:
     """Tests for POST /api/extract endpoint."""
 
-    def test_extract_success(self, test_client, sample_image_bytes, mock_manga_ocr, mock_groq_client):
+    def test_extract_success(self, test_client, sample_image_bytes, mock_pytesseract, mock_groq_client):
         """Test successful image extraction."""
         files = {"file": ("test.png", io.BytesIO(sample_image_bytes), "image/png")}
         response = test_client.post("/api/extract", files=files)
@@ -19,7 +19,6 @@ class TestExtractEndpoint:
         assert "cards" in data
         assert len(data["cards"]) >= 1
         assert "japanese" in data["cards"][0]
-        assert "reading" in data["cards"][0]
         assert "meaning" in data["cards"][0]
 
     def test_extract_missing_file(self, test_client):
@@ -27,7 +26,7 @@ class TestExtractEndpoint:
         response = test_client.post("/api/extract")
         assert response.status_code == 422
 
-    def test_extract_invalid_api_key(self, test_client, sample_image_bytes, mock_manga_ocr, monkeypatch):
+    def test_extract_invalid_api_key(self, test_client, sample_image_bytes, mock_pytesseract, monkeypatch):
         """Test extraction with invalid API key returns 401."""
         from groq import AuthenticationError
 
@@ -59,15 +58,15 @@ class TestExtractEndpoint:
         assert response.status_code == 401
         assert "GROQ_API_KEY" in response.json()["detail"]
 
-    def test_extract_empty_ocr_result(self, test_client, sample_image_bytes, mock_manga_ocr):
+    def test_extract_empty_ocr_result(self, test_client, sample_image_bytes, mock_pytesseract):
         """Test extraction with empty OCR result returns 500."""
-        mock_manga_ocr.return_value = ""
+        mock_pytesseract.return_value = ""
 
         files = {"file": ("test.png", io.BytesIO(sample_image_bytes), "image/png")}
         response = test_client.post("/api/extract", files=files)
 
         assert response.status_code == 500
-        assert "Manga OCR returned no text" in response.json()["detail"]
+        assert "OCR returned no text" in response.json()["detail"]
 
 
 class TestExtractTextEndpoint:
@@ -75,7 +74,7 @@ class TestExtractTextEndpoint:
 
     def test_extract_text_success(self, test_client, mock_groq_client):
         """Test successful text extraction."""
-        payload = {"text": "こんにちは"}
+        payload = {"text": "Hello"}
         response = test_client.post("/api/extract-text", json=payload)
 
         assert response.status_code == 200
@@ -197,14 +196,12 @@ class TestGenerateEndpoint:
         cards = [
             {
                 "japanese": "こんにちは",
-                "reading": "こんにちは",
                 "meaning": "Hello",
                 "example_sentence": "こんにちは、元気ですか？",
                 "example_translation": "Hello, how are you?",
             },
             {
                 "japanese": "こんにちは",  # Duplicate
-                "reading": "こんにちは",
                 "meaning": "Hello",
                 "example_sentence": "こんにちは、元気ですか？",  # Duplicate
                 "example_translation": "Hello, how are you?",

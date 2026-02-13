@@ -6,16 +6,15 @@ import urllib.request
 from kioku.models import CardItem
 
 DEFAULT_ANKI_CONNECT_URL = "http://localhost:8765"
-MODEL_NAME = "Japanese Vocab (ankiGen)"
+MODEL_NAME = "English-Japanese Vocab (ankiGen)"
 
 FRONT_TEMPLATE = (
-    '<div style="font-size:48px;text-align:center;">{{Japanese}}</div>'
-    "<div>{{WordAudio}}</div>"
+    '<div style="font-size:36px;text-align:center;">{{Meaning}}</div>'
 )
 BACK_TEMPLATE = (
     '{{FrontSide}}<hr id="answer">'
-    '<div style="font-size:24px;text-align:center;color:#666;">{{Reading}}</div>'
-    '<div style="font-size:28px;text-align:center;margin:10px 0;">{{Meaning}}</div>'
+    '<div style="font-size:48px;text-align:center;">{{Japanese}}</div>'
+    "<div>{{WordAudio}}</div>"
     '<div style="font-size:20px;margin-top:15px;">'
     "<b>Example:</b> {{ExampleSentence}}<br>"
     "<i>{{ExampleTranslation}}</i>"
@@ -48,7 +47,6 @@ def _ensure_model(model_name: str):
         modelName=model_name,
         inOrderFields=[
             "Japanese",
-            "Reading",
             "Meaning",
             "ExampleSentence",
             "ExampleTranslation",
@@ -106,7 +104,6 @@ def add_cards(
                 "modelName": MODEL_NAME,
                 "fields": {
                     "Japanese": card.japanese,
-                    "Reading": card.reading,
                     "Meaning": card.meaning,
                     "ExampleSentence": card.example_sentence,
                     "ExampleTranslation": card.example_translation,

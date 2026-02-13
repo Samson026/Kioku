@@ -13,13 +13,11 @@ class TestCardItem:
         """Test creating a valid CardItem."""
         card = CardItem(
             japanese="こんにちは",
-            reading="こんにちは",
             meaning="Hello",
             example_sentence="こんにちは、元気ですか？",
             example_translation="Hello, how are you?",
         )
         assert card.japanese == "こんにちは"
-        assert card.reading == "こんにちは"
         assert card.meaning == "Hello"
         assert card.example_sentence == "こんにちは、元気ですか？"
         assert card.example_translation == "Hello, how are you?"
@@ -34,7 +32,6 @@ class TestCardItem:
         with pytest.raises(ValidationError):
             CardItem(
                 japanese="こんにちは",
-                reading="こんにちは",
                 meaning="Hello",
                 example_sentence="こんにちは、元気ですか？",
                 # Missing example_translation

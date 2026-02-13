@@ -65,7 +65,7 @@ async def api_generate(req: GenerateRequest):
         # Collect unique texts to avoid duplicate TTS requests.
         unique_texts: dict[str, None] = {}
         for card in req.cards:
-            unique_texts[card.japanese] = None
+            unique_texts[card.meaning] = None
             unique_texts[card.example_sentence] = None
 
         text_list = list(unique_texts)
@@ -76,7 +76,7 @@ async def api_generate(req: GenerateRequest):
 
         audio_map: dict[str, bytes] = {}
         for i, card in enumerate(req.cards):
-            audio_map[f"word_{i}.mp3"] = audio_cache[card.japanese]
+            audio_map[f"word_{i}.mp3"] = audio_cache[card.meaning]
             audio_map[f"sentence_{i}.mp3"] = audio_cache[card.example_sentence]
 
         added = add_cards(req.cards, audio_map, req.deck_name)

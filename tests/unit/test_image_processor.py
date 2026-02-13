@@ -42,13 +42,12 @@ class TestEnrichText:
 
     def test_enrich_text_success(self, mock_groq_client, monkeypatch):
         """Test successful text enrichment with Groq."""
-        text = "こんにちは"
+        text = "Hello"
         cards = enrich_text(text)
 
         assert len(cards) == 1
         assert isinstance(cards[0], CardItem)
         assert cards[0].japanese == "こんにちは"
-        assert cards[0].reading == "こんにちは"
         assert cards[0].meaning == "Hello"
 
     def test_enrich_text_empty_text(self):
@@ -65,7 +64,7 @@ class TestEnrichText:
         """Test enrichment without API key raises error."""
         monkeypatch.delenv("GROQ_API_KEY", raising=False)
         with pytest.raises(RuntimeError, match="GROQ_API_KEY is required"):
-            enrich_text("こんにちは")
+            enrich_text("Hello")
 
     def test_enrich_text_invalid_json_response(self, monkeypatch):
         """Test enrichment with invalid JSON response."""
@@ -78,7 +77,7 @@ class TestEnrichText:
         monkeypatch.setattr("kioku.services.image_processor.Groq", mock_groq_class)
 
         with pytest.raises(RuntimeError, match="invalid JSON"):
-            enrich_text("こんにちは")
+            enrich_text("Hello")
 
     def test_enrich_text_non_list_response(self, monkeypatch):
         """Test enrichment with non-list JSON response."""
@@ -91,10 +90,10 @@ class TestEnrichText:
         monkeypatch.setattr("kioku.services.image_processor.Groq", mock_groq_class)
 
         with pytest.raises(RuntimeError, match="non-list JSON"):
-            enrich_text("こんにちは")
+            enrich_text("Hello")
 
     def test_enrich_text_filters_duplicates(self, monkeypatch):
-        """Test enrichment filters duplicate japanese entries."""
+        """Test enrichment filters duplicate Japanese entries."""
         mock_response = Mock()
         mock_response.choices = [
             Mock(
@@ -103,14 +102,12 @@ class TestEnrichText:
                         [
                             {
                                 "japanese": "こんにちは",
-                                "reading": "こんにちは",
                                 "meaning": "Hello",
                                 "example_sentence": "こんにちは",
                                 "example_translation": "Hello",
                             },
                             {
                                 "japanese": "こんにちは",  # Duplicate
-                                "reading": "こんにちは",
                                 "meaning": "Hello",
                                 "example_sentence": "こんにちは",
                                 "example_translation": "Hello",
@@ -126,11 +123,11 @@ class TestEnrichText:
         mock_groq_class = Mock(return_value=mock_client)
         monkeypatch.setattr("kioku.services.image_processor.Groq", mock_groq_class)
 
-        cards = enrich_text("こんにちは")
+        cards = enrich_text("Hello")
         assert len(cards) == 1
 
-    def test_enrich_text_filters_missing_reading(self, monkeypatch):
-        """Test enrichment filters entries without reading."""
+    def test_enrich_text_filters_missing_meaning(self, monkeypatch):
+        """Test enrichment filters entries without meaning."""
         mock_response = Mock()
         mock_response.choices = [
             Mock(
@@ -139,8 +136,7 @@ class TestEnrichText:
                         [
                             {
                                 "japanese": "test",
-                                "reading": "",  # Empty reading
-                                "meaning": "Test",
+                                "meaning": "",  # Empty meaning
                                 "example_sentence": "test",
                                 "example_translation": "test",
                             }
@@ -156,7 +152,7 @@ class TestEnrichText:
         monkeypatch.setattr("kioku.services.image_processor.Groq", mock_groq_class)
 
         with pytest.raises(RuntimeError, match="No valid cards extracted"):
-            enrich_text("test")
+            enrich_text("Test")
 
     def test_enrich_text_strips_code_fences(self, monkeypatch):
         """Test enrichment strips code fences from Groq response."""
@@ -164,7 +160,7 @@ class TestEnrichText:
         mock_response.choices = [
             Mock(
                 message=Mock(
-                    content='```json\n[{"japanese": "こんにちは", "reading": "こんにちは", "meaning": "Hello", "example_sentence": "こんにちは", "example_translation": "Hello"}]\n```'
+                    content='```json\n[{"japanese": "こんにちは", "meaning": "Hello", "example_sentence": "こんにちは", "example_translation": "Hello"}]\n```'
                 )
             )
         ]
@@ -174,7 +170,7 @@ class TestEnrichText:
         mock_groq_class = Mock(return_value=mock_client)
         monkeypatch.setattr("kioku.services.image_processor.Groq", mock_groq_class)
 
-        cards = enrich_text("こんにちは")
+        cards = enrich_text("Hello")
         assert len(cards) == 1
         assert cards[0].japanese == "こんにちは"
 
@@ -182,24 +178,24 @@ class TestEnrichText:
 class TestExtractCards:
     """Tests for extract_cards function."""
 
-    def test_extract_cards_success(self, sample_image_bytes, mock_manga_ocr, mock_groq_client):
+    def test_extract_cards_success(self, sample_image_bytes, mock_pytesseract, mock_groq_client):
         """Test successful card extraction from image."""
         cards = extract_cards(sample_image_bytes, "image/png")
 
         assert len(cards) >= 1
         assert all(isinstance(card, CardItem) for card in cards)
-        mock_manga_ocr.assert_called_once()
+        mock_pytesseract.assert_called_once()
 
-    def test_extract_cards_empty_ocr_result(self, sample_image_bytes, mock_manga_ocr):
+    def test_extract_cards_empty_ocr_result(self, sample_image_bytes, mock_pytesseract):
         """Test extraction with empty OCR result raises error."""
-        mock_manga_ocr.return_value = ""
+        mock_pytesseract.return_value = ""
 
-        with pytest.raises(RuntimeError, match="Manga OCR returned no text"):
+        with pytest.raises(RuntimeError, match="OCR returned no text"):
             extract_cards(sample_image_bytes, "image/png")
 
-    def test_extract_cards_whitespace_ocr_result(self, sample_image_bytes, mock_manga_ocr):
+    def test_extract_cards_whitespace_ocr_result(self, sample_image_bytes, mock_pytesseract):
         """Test extraction with whitespace-only OCR result raises error."""
-        mock_manga_ocr.return_value = "   "
+        mock_pytesseract.return_value = "   "
 
-        with pytest.raises(RuntimeError, match="Manga OCR returned no text"):
+        with pytest.raises(RuntimeError, match="OCR returned no text"):
             extract_cards(sample_image_bytes, "image/png")

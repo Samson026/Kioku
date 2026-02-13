@@ -24,7 +24,6 @@ def sample_card_item():
     """Single CardItem for testing."""
     return CardItem(
         japanese="こんにちは",
-        reading="こんにちは",
         meaning="Hello",
         example_sentence="こんにちは、元気ですか？",
         example_translation="Hello, how are you?",
@@ -37,14 +36,12 @@ def sample_cards():
     return [
         CardItem(
             japanese="こんにちは",
-            reading="こんにちは",
             meaning="Hello",
             example_sentence="こんにちは、元気ですか？",
             example_translation="Hello, how are you?",
         ),
         CardItem(
             japanese="元気",
-            reading="げんき",
             meaning="Well, healthy, energetic",
             example_sentence="元気です。",
             example_translation="I'm fine.",
@@ -73,7 +70,6 @@ def mock_groq_client(monkeypatch):
                     [
                         {
                             "japanese": "こんにちは",
-                            "reading": "こんにちは",
                             "meaning": "Hello",
                             "example_sentence": "こんにちは、元気ですか？",
                             "example_translation": "Hello, how are you?",
@@ -98,15 +94,11 @@ def mock_groq_client(monkeypatch):
 
 
 @pytest.fixture
-def mock_manga_ocr(monkeypatch):
-    """Mock Manga OCR to avoid loading the model."""
-    mock_ocr = Mock()
-    mock_ocr.return_value = "こんにちは"
-
-    # Mock the module-level _mocr instance
-    monkeypatch.setattr("kioku.services.image_processor._mocr", mock_ocr)
-
-    return mock_ocr
+def mock_pytesseract(monkeypatch):
+    """Mock pytesseract to avoid requiring Tesseract binary."""
+    mock_fn = Mock(return_value="Hello")
+    monkeypatch.setattr("kioku.services.image_processor.pytesseract.image_to_string", mock_fn)
+    return mock_fn
 
 
 @pytest.fixture
@@ -132,7 +124,7 @@ def mock_edge_tts(monkeypatch):
 def mock_anki_connect(monkeypatch):
     """Mock AnkiConnect HTTP requests."""
     responses = {
-        "modelNames": ["Japanese Vocab (ankiGen)"],
+        "modelNames": ["English-Japanese Vocab (ankiGen)"],
         "createDeck": None,
         "createModel": None,
         "storeMediaFile": None,

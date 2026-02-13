@@ -14,7 +14,7 @@ class TestAnkiRequest:
     def test_anki_request_success(self, mock_anki_connect):
         """Test successful AnkiConnect request."""
         result = _anki_request("modelNames")
-        assert result == ["Japanese Vocab (ankiGen)"]
+        assert result == ["English-Japanese Vocab (ankiGen)"]
 
     def test_anki_request_with_params(self, mock_anki_connect):
         """Test AnkiConnect request with parameters."""
@@ -44,7 +44,7 @@ class TestEnsureModel:
 
     def test_ensure_model_already_exists(self, mock_anki_connect):
         """Test ensure_model when model already exists."""
-        _ensure_model("Japanese Vocab (ankiGen)")
+        _ensure_model("English-Japanese Vocab (ankiGen)")
         # Should not raise any errors
 
     def test_ensure_model_creates_new(self, monkeypatch):
@@ -74,7 +74,7 @@ class TestEnsureModel:
 
         monkeypatch.setattr("urllib.request.urlopen", mock_urlopen_create)
 
-        _ensure_model("Japanese Vocab (ankiGen)")
+        _ensure_model("English-Japanese Vocab (ankiGen)")
         assert create_model_called
 
 
@@ -127,7 +127,7 @@ class TestAddCards:
                 audio_stored.append(body["params"]["filename"])
 
             result = {
-                "modelNames": ["Japanese Vocab (ankiGen)"],
+                "modelNames": ["English-Japanese Vocab (ankiGen)"],
                 "createDeck": None,
                 "storeMediaFile": None,
                 "addNote": 1234567890,

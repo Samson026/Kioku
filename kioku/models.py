@@ -3,7 +3,6 @@ from pydantic import BaseModel
 
 class CardItem(BaseModel):
     japanese: str
-    reading: str
     meaning: str
     example_sentence: str
     example_translation: str

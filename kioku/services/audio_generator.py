@@ -1,10 +1,10 @@
 import edge_tts
 
-VOICE = "ja-JP-NanamiNeural"
+VOICE = "en-US-JennyNeural"
 
 
 async def generate_audio(text: str) -> bytes:
-    """Generate MP3 audio for Japanese text using Microsoft Edge TTS."""
+    """Generate MP3 audio for English text using Microsoft Edge TTS."""
     if not text or not text.strip():
         raise RuntimeError("Cannot generate audio for empty text.")
 

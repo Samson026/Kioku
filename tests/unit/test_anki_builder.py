@@ -1,11 +1,18 @@
 """Unit tests for anki_builder service."""
 
 import json
+import re
 from unittest.mock import Mock
 
 import pytest
 
-from kioku.services.anki_builder import _anki_request, _ensure_deck, _ensure_model, add_cards
+from kioku.services.anki_builder import (
+    _anki_request,
+    _audio_filename,
+    _ensure_deck,
+    _ensure_model,
+    add_cards,
+)
 
 
 class TestAnkiRequest:
@@ -93,10 +100,10 @@ class TestAddCards:
     def test_add_cards_success(self, sample_cards, mock_anki_connect):
         """Test successfully adding cards to Anki."""
         audio_map = {
-            "word_0.mp3": b"audio_data_1",
-            "sentence_0.mp3": b"audio_data_2",
-            "word_1.mp3": b"audio_data_3",
-            "sentence_1.mp3": b"audio_data_4",
+            sample_cards[0].meaning: b"audio_data_1",
+            sample_cards[0].example_sentence: b"audio_data_2",
+            sample_cards[1].meaning: b"audio_data_3",
+            sample_cards[1].example_sentence: b"audio_data_4",
         }
 
         count = add_cards(sample_cards, audio_map, deck_name="TestDeck")
@@ -106,10 +113,10 @@ class TestAddCards:
     def test_add_cards_default_deck(self, sample_cards, mock_anki_connect):
         """Test adding cards with default deck name."""
         audio_map = {
-            "word_0.mp3": b"audio_data_1",
-            "sentence_0.mp3": b"audio_data_2",
-            "word_1.mp3": b"audio_data_3",
-            "sentence_1.mp3": b"audio_data_4",
+            sample_cards[0].meaning: b"audio_data_1",
+            sample_cards[0].example_sentence: b"audio_data_2",
+            sample_cards[1].meaning: b"audio_data_3",
+            sample_cards[1].example_sentence: b"audio_data_4",
         }
 
         count = add_cards(sample_cards, audio_map)
@@ -143,11 +150,14 @@ class TestAddCards:
 
         monkeypatch.setattr("urllib.request.urlopen", mock_urlopen_track_audio)
 
-        audio_map = {"word_0.mp3": b"audio1", "sentence_0.mp3": b"audio2"}
+        audio_map = {
+            sample_card_item.meaning: b"audio1",
+            sample_card_item.example_sentence: b"audio2",
+        }
         add_cards([sample_card_item], audio_map)
 
-        assert "word_0.mp3" in audio_stored
-        assert "sentence_0.mp3" in audio_stored
+        assert any(name.startswith("word_") and name.endswith(".mp3") for name in audio_stored)
+        assert any(name.startswith("sentence_") and name.endswith(".mp3") for name in audio_stored)
 
     def test_add_cards_anki_connect_error(self, sample_cards, monkeypatch):
         """Test add_cards handles AnkiConnect errors."""
@@ -163,7 +173,12 @@ class TestAddCards:
 
         monkeypatch.setattr("urllib.request.urlopen", mock_urlopen_error)
 
-        audio_map = {"word_0.mp3": b"audio"}
+        audio_map = {
+            sample_cards[0].meaning: b"audio1",
+            sample_cards[0].example_sentence: b"audio2",
+            sample_cards[1].meaning: b"audio3",
+            sample_cards[1].example_sentence: b"audio4",
+        }
 
         with pytest.raises(RuntimeError, match="AnkiConnect error"):
             add_cards(sample_cards, audio_map)
@@ -173,3 +188,10 @@ class TestAddCards:
         audio_map = {}
         count = add_cards([], audio_map)
         assert count == 0
+
+    def test_audio_filename_uses_text_and_hash(self):
+        """Test audio filename is deterministic and text-derived."""
+        filename = _audio_filename("word", "Hello world")
+        assert filename.startswith("word_hello-world_")
+        assert filename.endswith(".mp3")
+        assert re.match(r"^word_[a-z0-9-]+_[0-9a-f]{10}\.mp3$", filename)

@@ -74,10 +74,7 @@ async def api_generate(req: GenerateRequest):
         )
         audio_cache = dict(zip(text_list, audio_results))
 
-        audio_map: dict[str, bytes] = {}
-        for i, card in enumerate(req.cards):
-            audio_map[f"word_{i}.mp3"] = audio_cache[card.meaning]
-            audio_map[f"sentence_{i}.mp3"] = audio_cache[card.example_sentence]
+        audio_map: dict[str, bytes] = audio_cache
 
         added = add_cards(req.cards, audio_map, req.deck_name)
 

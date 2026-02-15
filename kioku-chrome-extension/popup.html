@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="header">
+    <h1>Kioku</h1>
+    <div class="header-buttons">
+      <button id="theme-toggle" class="icon-btn" title="Toggle dark mode">☾</button>
+      <button id="settings-toggle" class="icon-btn" title="Settings">Settings</button>
+      <button id="clear-btn" class="clear-btn" title="Clear all cards">Clear</button>
+    </div>
+  </div>
+
+  <div id="settings-panel" class="settings-panel" style="display: none;">
+    <div class="setting-item">
+      <label>Card Filter:</label>
+      <div class="toggle-group">
+        <button class="toggle-btn active" data-mode="all">All Cards</button>
+        <button class="toggle-btn" data-mode="sentence">Sentence Only</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="status" class="status">No cards captured yet</div>
+
+  <div id="cards-container"></div>
+
+  <div id="actions" class="actions" style="display: none;">
+    <input type="text" id="deck-name" placeholder="Deck name" value="Kioku">
+    <button id="add-to-anki" class="primary-btn">Add to Anki</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

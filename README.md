@@ -69,9 +69,27 @@ To access Kioku from a phone or another device on your network:
 
 For access outside your local network, you can expose port 8000 via router port forwarding or use a VPN like [Tailscale](https://tailscale.com/) or [WireGuard](https://www.wireguard.com/) to access your home network remotely.
 
+## Chrome Extension
+
+The Kioku Chrome extension allows you to capture Netflix subtitles and create Anki cards instantly.
+
+**Installation:**
+1. Make sure the Kioku API is running on `http://localhost:8000`
+2. Open Chrome and navigate to `chrome://extensions`
+3. Enable "Developer mode" (toggle in top right)
+4. Click "Load unpacked" and select the `kioku-chrome-extension` directory
+
+**Usage:**
+- Press **Alt+K** while watching Netflix to capture the current subtitle
+- Click the extension icon to review/edit cards
+- Click "Add to Anki" to generate audio and push to Anki
+
+See [`kioku-chrome-extension/README.md`](kioku-chrome-extension/README.md) for details.
+
 ## API Endpoints
 
 - `POST /api/extract` — multipart form with `file`, returns extracted card objects
+- `POST /api/extract-text` — JSON body with `text`, returns extracted card objects
 - `POST /api/generate` — JSON body with `cards` and optional `deck_name`, generates audio and pushes notes to Anki
 
 ## Running Without Docker

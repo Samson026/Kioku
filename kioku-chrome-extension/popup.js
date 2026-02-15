@@ -1,16 +1,21 @@
 let currentCards = [];
 let cardMode = 'all'; // 'all' or 'sentence'
 let theme = 'light';
+let apiUrl = 'http://localhost:8000';
 
 // Initialize settings from storage
 async function initSettings() {
-  const data = await chrome.storage.local.get(['cardMode', 'theme']);
+  const data = await chrome.storage.local.get(['cardMode', 'theme', 'apiUrl']);
   cardMode = data.cardMode || 'all';
   theme = data.theme || 'light';
+  apiUrl = data.apiUrl || 'http://localhost:8000';
 
   // Apply theme
   document.documentElement.setAttribute('data-theme', theme);
   updateThemeIcon();
+
+  // Update API URL input
+  document.getElementById('api-url').value = apiUrl;
 
   // Update card mode buttons
   document.querySelectorAll('.toggle-btn').forEach(btn => {
@@ -187,11 +192,33 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// Save API URL when it changes
+function saveApiUrl() {
+  const input = document.getElementById('api-url');
+  let url = input.value.trim();
+
+  // Remove trailing slash if present
+  if (url.endsWith('/')) {
+    url = url.slice(0, -1);
+  }
+
+  // Validate URL format
+  if (url && !url.match(/^https?:\/\/.+/)) {
+    input.style.borderColor = 'var(--error-text)';
+    return;
+  }
+
+  input.style.borderColor = '';
+  apiUrl = url || 'http://localhost:8000';
+  chrome.storage.local.set({ apiUrl });
+}
+
 // Event listeners
 document.getElementById('add-to-anki').addEventListener('click', addToAnki);
 document.getElementById('clear-btn').addEventListener('click', clearCards);
 document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 document.getElementById('settings-toggle').addEventListener('click', toggleSettings);
+document.getElementById('api-url').addEventListener('input', saveApiUrl);
 
 // Card mode toggle buttons
 document.querySelectorAll('.toggle-btn').forEach(btn => {

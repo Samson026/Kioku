@@ -6,10 +6,29 @@ services:
     ports:
       - "8000:8000"
     restart: unless-stopped
+    env_file:
+      - .env
     volumes:
       - huggingface-cache:/root/.cache/huggingface
     environment:
       - HF_HOME=/root/.cache/huggingface
+      - VOICEVOX_URL=http://voicevox:50021
+    depends_on:
+      - voicevox
+    networks:
+      - kioku-network
+
+  voicevox:
+    image: voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+    restart: unless-stopped
+    ports:
+      - "50021:50021"
+    networks:
+      - kioku-network
 
 volumes:
   huggingface-cache:
+
+networks:
+  kioku-network:
+    driver: bridge

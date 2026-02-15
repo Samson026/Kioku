@@ -9,7 +9,7 @@ def audio_filename(text: str, prefix: str) -> str:
         prefix: Prefix for the filename (e.g., 'word' or 'sentence')
 
     Returns:
-        A unique filename like 'word_a1b2c3d4e5f6.mp3'
+        A unique filename like 'word_a1b2c3d4e5f6.wav'
     """
     text_hash = hashlib.md5(text.encode('utf-8')).hexdigest()[:12]
-    return f"{prefix}_{text_hash}.mp3"
+    return f"{prefix}_{text_hash}.wav"

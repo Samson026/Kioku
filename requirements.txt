@@ -3,6 +3,6 @@ uvicorn
 groq
 manga-ocr
 Pillow
-edge-tts
+httpx
 python-dotenv
 python-multipart

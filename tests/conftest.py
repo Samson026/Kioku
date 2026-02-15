@@ -17,6 +17,8 @@ def set_test_env(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
     monkeypatch.setenv("GROQ_MODEL", "test-model")
     monkeypatch.setenv("ANKI_CONNECT_URL", "http://test-anki:8765")
+    monkeypatch.setenv("VOICEVOX_URL", "http://test-voicevox:50021")
+    monkeypatch.setenv("VOICEVOX_SPEAKER", "0")
 
 
 @pytest.fixture
@@ -110,22 +112,47 @@ def mock_manga_ocr(monkeypatch):
 
 
 @pytest.fixture
-def mock_edge_tts(monkeypatch):
-    """Mock Edge TTS audio generation."""
+def mock_voicevox(monkeypatch):
+    """Mock VOICEVOX HTTP API."""
 
-    class MockCommunicate:
-        def __init__(self, text, voice):
-            self.text = text
-            self.voice = voice
+    class MockResponse:
+        def __init__(self, json_data=None, content=None, status_code=200):
+            self._json_data = json_data
+            self.content = content
+            self.status_code = status_code
 
-        async def stream(self):
-            # Simulate audio chunks
-            yield {"type": "audio", "data": b"mock_audio_chunk_1"}
-            yield {"type": "audio", "data": b"mock_audio_chunk_2"}
+        def json(self):
+            return self._json_data
 
-    monkeypatch.setattr("kioku.services.audio_generator.edge_tts.Communicate", MockCommunicate)
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                import httpx
+                raise httpx.HTTPStatusError(
+                    "HTTP Error",
+                    request=Mock(),
+                    response=self
+                )
 
-    return MockCommunicate
+    class MockAsyncClient:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def post(self, url, **kwargs):
+            if "audio_query" in url:
+                return MockResponse(json_data={"query": "mock_audio_query"})
+            elif "synthesis" in url:
+                return MockResponse(content=b"mock_wav_audio_data")
+            else:
+                return MockResponse(status_code=404)
+
+    monkeypatch.setattr("httpx.AsyncClient", MockAsyncClient)
+    return MockAsyncClient
 
 
 @pytest.fixture

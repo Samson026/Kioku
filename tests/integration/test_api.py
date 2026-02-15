@@ -112,7 +112,7 @@ class TestGenerateEndpoint:
     """Tests for POST /api/generate endpoint."""
 
     @pytest.mark.asyncio
-    async def test_generate_success(self, test_client, sample_cards, mock_edge_tts, mock_anki_connect):
+    async def test_generate_success(self, test_client, sample_cards, mock_voicevox, mock_anki_connect):
         """Test successful audio generation and Anki card creation."""
         payload = {
             "cards": [card.model_dump() for card in sample_cards],
@@ -126,7 +126,7 @@ class TestGenerateEndpoint:
         assert data["added"] == 2
 
     @pytest.mark.asyncio
-    async def test_generate_empty_cards(self, test_client, mock_edge_tts, mock_anki_connect):
+    async def test_generate_empty_cards(self, test_client, mock_voicevox, mock_anki_connect):
         """Test generation with empty cards list."""
         payload = {"cards": [], "deck_name": "TestDeck"}
         response = test_client.post("/api/generate", json=payload)
@@ -136,7 +136,7 @@ class TestGenerateEndpoint:
         assert data["added"] == 0
 
     @pytest.mark.asyncio
-    async def test_generate_default_deck_name(self, test_client, sample_cards, mock_edge_tts, mock_anki_connect):
+    async def test_generate_default_deck_name(self, test_client, sample_cards, mock_voicevox, mock_anki_connect):
         """Test generation uses default deck name when not provided."""
         payload = {"cards": [card.model_dump() for card in sample_cards]}
         response = test_client.post("/api/generate", json=payload)
@@ -146,30 +146,33 @@ class TestGenerateEndpoint:
         assert "added" in data
 
     @pytest.mark.asyncio
-    async def test_generate_edge_tts_failure(self, test_client, sample_cards, monkeypatch):
-        """Test generation handles Edge TTS failures."""
+    async def test_generate_voicevox_failure(self, test_client, sample_cards, monkeypatch):
+        """Test generation handles VOICEVOX failures."""
 
-        class MockCommunicateFail:
-            def __init__(self, text, voice):
-                self.text = text
-                self.voice = voice
+        class MockAsyncClientFail:
+            def __init__(self, **kwargs):
+                pass
 
-            async def stream(self):
-                raise Exception("Edge TTS service unavailable")
-                yield  # pragma: no cover
+            async def __aenter__(self):
+                return self
 
-        monkeypatch.setattr(
-            "kioku.services.audio_generator.edge_tts.Communicate", MockCommunicateFail
-        )
+            async def __aexit__(self, *args):
+                pass
+
+            async def post(self, url, **kwargs):
+                import httpx
+                raise httpx.ConnectError("Connection refused")
+
+        monkeypatch.setattr("httpx.AsyncClient", MockAsyncClientFail)
 
         payload = {"cards": [card.model_dump() for card in sample_cards]}
         response = test_client.post("/api/generate", json=payload)
 
         assert response.status_code == 502
-        assert "Edge TTS request failed" in response.json()["detail"]
+        assert "VOICEVOX request failed" in response.json()["detail"]
 
     @pytest.mark.asyncio
-    async def test_generate_anki_connect_failure(self, test_client, sample_cards, mock_edge_tts, monkeypatch):
+    async def test_generate_anki_connect_failure(self, test_client, sample_cards, mock_voicevox, monkeypatch):
         """Test generation handles AnkiConnect failures."""
 
         def mock_urlopen_error(request):
@@ -191,7 +194,7 @@ class TestGenerateEndpoint:
         assert "AnkiConnect error" in response.json()["detail"]
 
     @pytest.mark.asyncio
-    async def test_generate_deduplicates_audio(self, test_client, mock_edge_tts, mock_anki_connect):
+    async def test_generate_deduplicates_audio(self, test_client, mock_voicevox, mock_anki_connect):
         """Test that generate endpoint deduplicates audio generation for same text."""
         # Create cards with duplicate japanese text
         cards = [

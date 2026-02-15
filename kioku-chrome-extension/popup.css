@@ -199,6 +199,61 @@ body {
   color: var(--error-text);
 }
 
+.extraction-panel {
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.panel-header label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.panel-header .icon-btn {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.panel-header .icon-btn:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.extracted-text {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-color-dark);
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  resize: vertical;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+
+.extracted-text:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.extraction-panel .primary-btn {
+  width: 100%;
+}
+
 #cards-container {
   padding: 8px;
 }

@@ -31,6 +31,16 @@
 
   <div id="status" class="status">No cards captured yet</div>
 
+  <!-- Text extraction panel -->
+  <div id="extraction-panel" class="extraction-panel" style="display: none;">
+    <div class="panel-header">
+      <label>Extracted Text:</label>
+      <button id="cancel-extraction" class="icon-btn">Cancel</button>
+    </div>
+    <textarea id="extracted-text" class="extracted-text" rows="4" placeholder="Extracted text will appear here..."></textarea>
+    <button id="process-text" class="primary-btn">Process Text</button>
+  </div>
+
   <div id="cards-container"></div>
 
   <div id="actions" class="actions" style="display: none;">

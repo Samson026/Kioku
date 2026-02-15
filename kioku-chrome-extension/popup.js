@@ -66,6 +66,100 @@ function filterCards(cards) {
   return cards;
 }
 
+// Check for pending extracted text and show extraction panel if present
+async function checkPendingExtraction() {
+  const data = await chrome.storage.local.get(['pendingText']);
+
+  if (data.pendingText) {
+    showExtractionPanel(data.pendingText);
+    return true;
+  }
+  return false;
+}
+
+// Show the extraction panel with the extracted text
+function showExtractionPanel(text) {
+  const extractionPanel = document.getElementById('extraction-panel');
+  const extractedText = document.getElementById('extracted-text');
+  const cardsContainer = document.getElementById('cards-container');
+  const status = document.getElementById('status');
+  const actions = document.getElementById('actions');
+
+  extractedText.value = text;
+  extractionPanel.style.display = 'block';
+  cardsContainer.style.display = 'none';
+  status.style.display = 'none';
+  actions.style.display = 'none';
+
+  // Focus the textarea and select all text for easy editing
+  setTimeout(() => {
+    extractedText.focus();
+    extractedText.select();
+  }, 100);
+}
+
+// Hide the extraction panel
+function hideExtractionPanel() {
+  const extractionPanel = document.getElementById('extraction-panel');
+  const cardsContainer = document.getElementById('cards-container');
+
+  extractionPanel.style.display = 'none';
+  cardsContainer.style.display = 'block';
+}
+
+// Process the extracted text through the API
+async function processExtractedText() {
+  const extractedText = document.getElementById('extracted-text').value.trim();
+  const status = document.getElementById('status');
+
+  if (!extractedText) {
+    status.textContent = 'Please enter some text to process';
+    status.className = 'status error';
+    status.style.display = 'block';
+    return;
+  }
+
+  status.textContent = 'Processing text...';
+  status.className = 'status';
+  status.style.display = 'block';
+
+  try {
+    // Send to background service worker to make the actual API call
+    const response = await chrome.runtime.sendMessage({
+      action: "sendToApi",
+      text: extractedText
+    });
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    // Clear pending text
+    await chrome.storage.local.remove('pendingText');
+
+    // Hide extraction panel and show cards
+    hideExtractionPanel();
+
+    // Load the cards
+    await loadCards();
+
+    const count = response.cards ? response.cards.length : 0;
+    status.textContent = `Processed ${count} card(s)`;
+    status.className = 'status success';
+
+  } catch (err) {
+    status.textContent = `Error: ${err.message}`;
+    status.className = 'status error';
+  }
+}
+
+// Cancel extraction
+async function cancelExtraction() {
+  await chrome.storage.local.remove('pendingText');
+  hideExtractionPanel();
+  loadCards();
+}
+
 // Load and display cards from storage
 async function loadCards() {
   const data = await chrome.storage.local.get(['cards', 'timestamp']);
@@ -75,6 +169,11 @@ async function loadCards() {
   const container = document.getElementById('cards-container');
   const status = document.getElementById('status');
   const actions = document.getElementById('actions');
+  const extractionPanel = document.getElementById('extraction-panel');
+
+  // Make sure extraction panel is hidden
+  extractionPanel.style.display = 'none';
+  container.style.display = 'block';
 
   if (currentCards.length === 0) {
     status.textContent = 'No cards captured yet';
@@ -219,6 +318,8 @@ document.getElementById('clear-btn').addEventListener('click', clearCards);
 document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 document.getElementById('settings-toggle').addEventListener('click', toggleSettings);
 document.getElementById('api-url').addEventListener('input', saveApiUrl);
+document.getElementById('process-text').addEventListener('click', processExtractedText);
+document.getElementById('cancel-extraction').addEventListener('click', cancelExtraction);
 
 // Card mode toggle buttons
 document.querySelectorAll('.toggle-btn').forEach(btn => {
@@ -228,4 +329,10 @@ document.querySelectorAll('.toggle-btn').forEach(btn => {
 });
 
 // Initialize and load
-initSettings().then(() => loadCards());
+initSettings().then(async () => {
+  // Check for pending extraction first, if none then load cards
+  const hasPendingExtraction = await checkPendingExtraction();
+  if (!hasPendingExtraction) {
+    loadCards();
+  }
+});

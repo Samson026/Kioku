@@ -44,28 +44,25 @@ function showToast(message, isError = false) {
   }, 2500);
 }
 
-// Send subtitle text to Kioku API via background service worker
+// Store subtitle text for user review
 async function sendToKioku(text) {
   if (!text) {
     showToast("No subtitle visible", true);
     return;
   }
 
-  showToast(`Capturing: ${text.substring(0, 40)}...`);
+  showToast(`Captured: ${text.substring(0, 40)}...`);
 
   try {
-    // Send to background service worker to make the actual API call
-    const response = await chrome.runtime.sendMessage({
-      action: "sendToApi",
-      text: text
+    // Store the extracted text for the popup to display
+    await chrome.storage.local.set({
+      pendingText: text
     });
 
-    if (response.error) {
-      throw new Error(response.error);
-    }
+    // Request to open the popup (background will handle this)
+    chrome.runtime.sendMessage({ action: "openPopup" });
 
-    const count = response.cards ? response.cards.length : 0;
-    showToast(`Captured ${count} card(s) - Open popup to review`);
+    showToast("Text captured - Review in popup");
   } catch (err) {
     showToast(`Error: ${err.message}`, true);
   }

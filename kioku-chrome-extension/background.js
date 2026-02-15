@@ -20,8 +20,16 @@ async function getApiUrl() {
   return data.apiUrl || 'http://localhost:8000';
 }
 
-// Handle API calls from content script
+// Handle API calls and popup requests
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Handle request to open popup
+  if (message.action === "openPopup") {
+    chrome.action.openPopup().catch((err) => {
+      console.log("[Kioku] Could not open popup:", err);
+    });
+    return;
+  }
+
   if (message.action === "sendToApi") {
     // Make the API call from the service worker (not subject to mixed content restrictions)
     getApiUrl().then(apiUrl => {
@@ -43,14 +51,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             cards: data.cards || [],
             timestamp: Date.now()
           });
-
-          // Auto-open popup after extraction
-          if (data.cards && data.cards.length > 0) {
-            chrome.action.openPopup().catch(() => {
-              // If popup can't be opened programmatically (e.g., user gesture required),
-              // the content script toast will still inform the user
-            });
-          }
 
           sendResponse({ cards: data.cards });
         })

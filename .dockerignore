@@ -55,4 +55,3 @@ README.md
 Makefile
 requirements-dev.txt
 .flake8
-pyproject.toml

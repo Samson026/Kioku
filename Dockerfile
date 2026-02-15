@@ -4,7 +4,7 @@ FROM python:3.12-slim as builder
 WORKDIR /build
 
 # Copy only what's needed for building the wheel
-COPY setup.py pyproject.toml ./
+COPY setup.py pyproject.toml requirements.txt ./
 COPY kioku/ ./kioku/
 
 # Build the wheel inside the container

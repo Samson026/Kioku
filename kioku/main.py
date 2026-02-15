@@ -12,6 +12,7 @@ from kioku.models import ExtractionResult, GenerateRequest, TextExtractionReques
 from kioku.services.anki_builder import add_cards, sync_anki
 from kioku.services.audio_generator import generate_audio
 from kioku.services.image_processor import enrich_text, extract_cards
+from kioku.utils import audio_filename
 
 load_dotenv()
 
@@ -75,9 +76,11 @@ async def api_generate(req: GenerateRequest):
         audio_cache = dict(zip(text_list, audio_results))
 
         audio_map: dict[str, bytes] = {}
-        for i, card in enumerate(req.cards):
-            audio_map[f"word_{i}.mp3"] = audio_cache[card.japanese]
-            audio_map[f"sentence_{i}.mp3"] = audio_cache[card.example_sentence]
+        for card in req.cards:
+            word_file = audio_filename(card.japanese, "word")
+            sentence_file = audio_filename(card.example_sentence, "sentence")
+            audio_map[word_file] = audio_cache[card.japanese]
+            audio_map[sentence_file] = audio_cache[card.example_sentence]
 
         added = add_cards(req.cards, audio_map, req.deck_name)
 

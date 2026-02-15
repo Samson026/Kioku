@@ -91,7 +91,7 @@ build-wheel:
 	pip wheel --no-deps -w dist/ .
 
 # Docker targets
-docker-build: build-wheel
+docker-build:
 	docker build -t kioku:latest .
 
 docker-run:
@@ -100,8 +100,8 @@ docker-run:
 		-e HF_HOME=/root/.cache/huggingface \
 		kioku:latest
 
-docker-compose-up: docker-build
-	docker-compose up -d
+docker-compose-up:
+	docker-compose up -d --build
 
 docker-compose-down:
 	docker-compose down

@@ -4,6 +4,7 @@ import os
 import urllib.request
 
 from kioku.models import CardItem
+from kioku.utils import audio_filename
 
 DEFAULT_ANKI_CONNECT_URL = "http://localhost:8765"
 MODEL_NAME = "Japanese Vocab (ankiGen)"
@@ -95,9 +96,9 @@ def add_cards(
 
     # Add notes
     added = 0
-    for i, card in enumerate(cards):
-        word_audio_file = f"word_{i}.mp3"
-        sentence_audio_file = f"sentence_{i}.mp3"
+    for card in cards:
+        word_audio_file = audio_filename(card.japanese, "word")
+        sentence_audio_file = audio_filename(card.example_sentence, "sentence")
 
         _anki_request(
             "addNote",

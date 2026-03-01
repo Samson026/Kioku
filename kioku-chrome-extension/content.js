@@ -3,7 +3,7 @@ function getCurrentSubtitle() {
   const container = document.querySelector(".player-timedtext");
   if (!container) return "";
 
-  const spans = container.querySelectorAll("span");
+  const spans = container.querySelectorAll("span:not(:has(span))");
   const text = Array.from(spans)
     .map((s) => s.textContent.trim())
     .filter(Boolean)

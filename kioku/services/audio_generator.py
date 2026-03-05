@@ -24,6 +24,10 @@ async def generate_audio(text: str) -> bytes:
             query_response.raise_for_status()
             audio_query = query_response.json()
 
+            # Apply speed adjustment
+            speed = float(os.environ.get("VOICEVOX_SPEED", "0.8"))
+            audio_query["speedScale"] = speed
+
             # Step 2: Synthesize audio
             synthesis_response = await client.post(
                 f"{base_url}/synthesis",

@@ -16,6 +16,7 @@ class ExtractionResult(BaseModel):
 class GenerateRequest(BaseModel):
     cards: list[CardItem]
     deck_name: str = "ankiGen"
+    sentence_audio_b64: str | None = None
 
 
 class TextExtractionRequest(BaseModel):

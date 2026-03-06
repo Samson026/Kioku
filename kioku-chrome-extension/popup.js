@@ -78,7 +78,7 @@ async function checkPendingExtraction() {
 }
 
 // Show the extraction panel with the extracted text
-function showExtractionPanel(text) {
+async function showExtractionPanel(text) {
   const extractionPanel = document.getElementById('extraction-panel');
   const extractedText = document.getElementById('extracted-text');
   const cardsContainer = document.getElementById('cards-container');
@@ -96,6 +96,25 @@ function showExtractionPanel(text) {
     extractedText.focus();
     extractedText.select();
   }, 100);
+
+  await refreshAudioPreview();
+}
+
+// Update the audio preview element from storage
+async function refreshAudioPreview() {
+  const { pendingAudio } = await chrome.storage.local.get(['pendingAudio']);
+  console.log('[Kioku] refreshAudioPreview: pendingAudio =', pendingAudio ? `<base64 string, length ${pendingAudio.length}>` : pendingAudio);
+  const preview = document.getElementById('audio-preview');
+  if (pendingAudio) {
+    const binary = atob(pendingAudio);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: 'audio/webm' });
+    document.getElementById('preview-audio').src = URL.createObjectURL(blob);
+    preview.style.display = 'flex';
+  } else {
+    preview.style.display = 'none';
+  }
 }
 
 // Hide the extraction panel
@@ -175,6 +194,8 @@ async function loadCards() {
   extractionPanel.style.display = 'none';
   container.style.display = 'block';
 
+  await refreshAudioPreview();
+
   if (currentCards.length === 0) {
     status.textContent = 'No cards captured yet';
     status.style.display = 'block';
@@ -221,6 +242,7 @@ async function loadCards() {
   container.querySelectorAll('.delete-btn').forEach(btn => {
     btn.addEventListener('click', handleDelete);
   });
+
 }
 
 // Handle field edits
@@ -260,10 +282,12 @@ async function addToAnki() {
   status.style.display = 'block';
 
   try {
+    const storageData = await chrome.storage.local.get(['pendingAudio']);
     const response = await chrome.runtime.sendMessage({
       action: "generateCards",
       cards: currentCards,
-      deckName: deckName
+      deckName: deckName,
+      sentenceAudioB64: storageData.pendingAudio || null,
     });
 
     if (response.error) {
@@ -273,7 +297,9 @@ async function addToAnki() {
     status.textContent = `Successfully added ${response.added} card(s) to Anki!`;
     status.className = 'status success';
 
-    // Clear cards after successful add
+    // Clear cards and captured audio after successful add
+    await chrome.storage.local.remove('pendingAudio');
+    document.getElementById('audio-preview').style.display = 'none';
     setTimeout(() => {
       clearCards();
     }, 1500);
@@ -326,6 +352,13 @@ document.querySelectorAll('.toggle-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     setCardMode(btn.dataset.mode);
   });
+});
+
+// Listen for audio becoming available after popup opens
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.pendingAudio) {
+    refreshAudioPreview();
+  }
 });
 
 // Initialize and load

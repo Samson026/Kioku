@@ -367,6 +367,27 @@ body {
   background: var(--accent-active);
 }
 
+.audio-preview {
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.audio-preview label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.audio-preview audio {
+  flex: 1;
+  height: 32px;
+}
+
 /* Scrollbar styling */
 body::-webkit-scrollbar {
   width: 8px;

@@ -1,4 +1,5 @@
 import asyncio
+import base64
 from pathlib import Path
 
 import uvicorn
@@ -63,13 +64,22 @@ async def api_extract_text(req: TextExtractionRequest):
 @app.post("/api/generate")
 async def api_generate(req: GenerateRequest):
     try:
-        # Collect unique texts to avoid duplicate TTS requests.
-        unique_texts: dict[str, None] = {}
-        for card in req.cards:
-            unique_texts[card.japanese] = None
-            unique_texts[card.example_sentence] = None
+        # Decode captured sentence audio if provided
+        captured_sentence_audio: bytes | None = None
+        if req.sentence_audio_b64:
+            try:
+                captured_sentence_audio = base64.b64decode(req.sentence_audio_b64)
+            except Exception:
+                captured_sentence_audio = None
 
-        text_list = list(unique_texts)
+        # Collect unique texts; skip sentence TTS when captured audio is available
+        texts_needing_tts: dict[str, None] = {}
+        for card in req.cards:
+            texts_needing_tts[card.japanese] = None
+            if captured_sentence_audio is None:
+                texts_needing_tts[card.example_sentence] = None
+
+        text_list = list(texts_needing_tts)
         audio_results = await asyncio.gather(
             *(generate_audio(t) for t in text_list)
         )
@@ -80,7 +90,11 @@ async def api_generate(req: GenerateRequest):
             word_file = audio_filename(card.japanese, "word")
             sentence_file = audio_filename(card.example_sentence, "sentence")
             audio_map[word_file] = audio_cache[card.japanese]
-            audio_map[sentence_file] = audio_cache[card.example_sentence]
+            audio_map[sentence_file] = (
+                captured_sentence_audio
+                if captured_sentence_audio is not None
+                else audio_cache[card.example_sentence]
+            )
 
         added = add_cards(req.cards, audio_map, req.deck_name)
 

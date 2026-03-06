@@ -3,7 +3,7 @@
   "name": "Kioku Subtitle Capture",
   "version": "1.0.0",
   "description": "Capture Netflix subtitles and send to Kioku API for Anki flashcard generation",
-  "permissions": ["storage"],
+  "permissions": ["storage", "tabCapture", "offscreen"],
   "host_permissions": [
     "http://*/*",
     "https://*/*"
@@ -13,6 +13,12 @@
       "matches": ["https://www.netflix.com/*"],
       "js": ["content.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.netflix.com/*"],
+      "js": ["kioku-page.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
     }
   ],
   "action": {

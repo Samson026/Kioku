@@ -1,86 +1,97 @@
-// Read current subtitle from Netflix DOM
 function getCurrentSubtitle() {
   const container = document.querySelector(".player-timedtext");
   if (!container) return "";
-
   const spans = container.querySelectorAll("span:not(:has(span))");
-  const text = Array.from(spans)
-    .map((s) => s.textContent.trim())
-    .filter(Boolean)
-    .join(" ");
-
-  return text;
+  return Array.from(spans).map(s => s.textContent.trim()).filter(Boolean).join(" ");
 }
 
-// Show toast notification overlay on Netflix page
 function showToast(message, isError = false) {
   const existing = document.getElementById("kioku-toast");
   if (existing) existing.remove();
-
   const toast = document.createElement("div");
   toast.id = "kioku-toast";
   toast.textContent = message;
   Object.assign(toast.style, {
-    position: "fixed",
-    top: "20px",
-    right: "20px",
-    padding: "12px 20px",
-    borderRadius: "8px",
+    position: "fixed", top: "20px", right: "20px",
+    padding: "12px 20px", borderRadius: "8px",
     background: isError ? "#c62828" : "#2e7d32",
-    color: "#fff",
-    fontSize: "14px",
-    fontFamily: "system-ui, sans-serif",
-    zIndex: "999999",
-    opacity: "0.95",
-    transition: "opacity 0.3s",
-    maxWidth: "400px",
+    color: "#fff", fontSize: "14px", fontFamily: "system-ui, sans-serif",
+    zIndex: "999999", opacity: "0.95", maxWidth: "400px",
   });
-
   document.body.appendChild(toast);
-
-  setTimeout(() => {
-    toast.style.opacity = "0";
-    setTimeout(() => toast.remove(), 300);
-  }, 2500);
+  setTimeout(() => { toast.style.opacity = "0"; setTimeout(() => toast.remove(), 300); }, 2500);
 }
 
-// Store subtitle text for user review
-async function sendToKioku(text) {
-  if (!text) {
-    showToast("No subtitle visible", true);
-    return;
+let currentSubtitleText = "";
+let subtitleStartVideoTime = null;  // video.currentTime when current subtitle appeared
+
+function setupObserver() {
+  const container = document.querySelector(".player-timedtext");
+  if (!container) { setTimeout(setupObserver, 1000); return; }
+
+  new MutationObserver(() => {
+    const text = getCurrentSubtitle();
+    if (text === currentSubtitleText) return;
+
+    currentSubtitleText = text;
+
+    if (text) {
+      const video = document.querySelector("video");
+      subtitleStartVideoTime = video ? video.currentTime : null;
+    }
+  }).observe(container, { childList: true, subtree: true, characterData: true });
+}
+setupObserver();
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.action === "getSubtitle") {
+    sendResponse({ text: currentSubtitleText || null });
   }
 
-  showToast(`Captured: ${text.substring(0, 40)}...`);
-
-  try {
-    // Store the extracted text for the popup to display
-    await chrome.storage.local.set({
-      pendingText: text
-    });
-
-    // Request to open the popup (background will handle this)
-    chrome.runtime.sendMessage({ action: "openPopup" });
-
-    showToast("Text captured - Review in popup");
-  } catch (err) {
-    showToast(`Error: ${err.message}`, true);
+  if (msg.action === "seekToSubtitleStart") {
+    const video = document.querySelector("video");
+    const time = subtitleStartVideoTime;
+    if (!video || time == null) { sendResponse({ ok: false }); return; }
+    const timeMs = Math.max(0, (time - 0.1) * 1000);
+    window.dispatchEvent(new CustomEvent("kioku-seek", { detail: { timeMs } }));
+    video.addEventListener("seeked", () => sendResponse({ ok: true }), { once: true });
+    return true; // async response
   }
-}
 
-// Capture and send current subtitle
-function captureAndSend() {
-  const text = getCurrentSubtitle();
-  sendToKioku(text);
-}
+  if (msg.action === "ensurePlaying") {
+    const video = document.querySelector("video");
+    if (video?.paused) video.play();
+    sendResponse({ ok: true });
+  }
 
-// Listen for messages from background script (keyboard shortcut)
-chrome.runtime.onMessage.addListener((msg) => {
-  console.log("[Kioku] Received message:", msg);
-  if (msg.action === "capture") {
-    console.log("[Kioku] Starting capture...");
-    captureAndSend();
+  if (msg.action === "pauseVideo") {
+    const video = document.querySelector("video");
+    if (video) video.pause();
+    sendResponse({ ok: true });
+  }
+
+  // Watch for the current subtitle to finish, then notify background.
+  // First waits for a subtitle to appear (in case we seeked to just before it),
+  // then watches for it to change/disappear.
+  if (msg.action === "watchSubtitleEnd") {
+    const waitForSubtitle = () => {
+      if (!currentSubtitleText) {
+        requestAnimationFrame(waitForSubtitle);
+        return;
+      }
+      const activeText = currentSubtitleText;
+      const watchEnd = () => {
+        if (currentSubtitleText !== activeText) {
+          chrome.runtime.sendMessage({ action: "subtitleEnded" });
+        } else {
+          requestAnimationFrame(watchEnd);
+        }
+      };
+      requestAnimationFrame(watchEnd);
+    };
+    requestAnimationFrame(waitForSubtitle);
+    sendResponse({ ok: true });
   }
 });
 
-console.log("[Kioku] Content script loaded on:", window.location.href);
+console.log("[Kioku] Content script loaded");

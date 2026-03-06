@@ -11,17 +11,24 @@ async function handleCapture() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab) return;
 
-  if (audioStreamTabId !== tab.id) {
-    const ok = await initStream(tab.id);
-    if (!ok) { console.log("[Kioku] Could not init audio stream"); return; }
+  const ok = await initStream(tab.id);
+  if (!ok) {
+    console.log("[Kioku] Could not init audio stream");
+    chrome.tabs.sendMessage(tab.id, { action: "showToast", text: "Audio init failed", isError: true }).catch(() => {});
+    return;
   }
 
   const { text } = await chrome.tabs.sendMessage(tab.id, { action: "getSubtitle" }).catch(() => ({}));
-  if (!text) { console.log("[Kioku] No subtitle"); return; }
+  if (!text) {
+    console.log("[Kioku] No subtitle");
+    chrome.tabs.sendMessage(tab.id, { action: "showToast", text: "No subtitle", isError: true }).catch(() => {});
+    return;
+  }
 
   // Seek to subtitle start, then record through to the end
   await chrome.tabs.sendMessage(tab.id, { action: "seekToSubtitleStart" }).catch(() => {});
   await chrome.runtime.sendMessage({ action: "startRecording" });
+  chrome.tabs.sendMessage(tab.id, { action: "showToast", text: "Recording…", isError: false }).catch(() => {});
   await chrome.tabs.sendMessage(tab.id, { action: "ensurePlaying" }).catch(() => {});
   chrome.tabs.sendMessage(tab.id, { action: "watchSubtitleEnd" });
 
@@ -36,6 +43,7 @@ async function handleCapture() {
 
   console.log("[Kioku] Storing. audio =", r?.audio ? `${r.audio.length} chars` : "null");
   await chrome.storage.local.set({ pendingText: text, pendingAudio: r?.audio || null });
+  chrome.tabs.sendMessage(tab.id, { action: "showToast", text: "Captured", isError: false }).catch(() => {});
   chrome.action.openPopup().catch(e => console.log("[Kioku] openPopup:", e.message));
 }
 
@@ -54,13 +62,14 @@ async function initStream(tabId) {
 
 async function ensureOffscreenDocument() {
   const contexts = await chrome.runtime.getContexts({ contextTypes: ["OFFSCREEN_DOCUMENT"] });
-  if (contexts.length === 0) {
-    await chrome.offscreen.createDocument({
-      url: "offscreen.html",
-      reasons: ["USER_MEDIA"],
-      justification: "Recording tab audio for Anki flashcards",
-    });
+  if (contexts.length > 0) {
+    await chrome.offscreen.closeDocument().catch(() => {});
   }
+  await chrome.offscreen.createDocument({
+    url: "offscreen.html",
+    reasons: ["USER_MEDIA"],
+    justification: "Recording tab audio for Anki flashcards",
+  });
 }
 
 // ── Message handler ──────────────────────────────────────────────────────────

@@ -53,9 +53,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const time = subtitleStartVideoTime;
     if (!video || time == null) { sendResponse({ ok: false }); return; }
     const timeMs = Math.max(0, (time - 0.1) * 1000);
+    // Attach listener BEFORE dispatching so we can't miss a fast/sync seeked event.
+    // Fallback timeout in case seeked never fires (e.g. already at that position).
+    const timeout = setTimeout(() => sendResponse({ ok: true }), 2000);
+    video.addEventListener("seeked", () => { clearTimeout(timeout); sendResponse({ ok: true }); }, { once: true });
     window.dispatchEvent(new CustomEvent("kioku-seek", { detail: { timeMs } }));
-    video.addEventListener("seeked", () => sendResponse({ ok: true }), { once: true });
     return true; // async response
+  }
+
+  if (msg.action === "showToast") {
+    showToast(msg.text, msg.isError);
+    sendResponse({ ok: true });
   }
 
   if (msg.action === "ensurePlaying") {

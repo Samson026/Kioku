@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import subprocess
 from pathlib import Path
 
 import uvicorn
@@ -16,6 +17,19 @@ from kioku.services.image_processor import enrich_text, extract_cards
 from kioku.utils import audio_filename
 
 load_dotenv()
+
+
+def webm_to_wav(data: bytes) -> bytes:
+    """Convert WebM/Opus audio bytes to WAV using ffmpeg."""
+    result = subprocess.run(
+        ["ffmpeg", "-y", "-i", "pipe:0", "-f", "wav", "pipe:1"],
+        input=data,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"ffmpeg conversion failed: {result.stderr.decode()}")
+    return result.stdout
+
 
 app = FastAPI()
 
@@ -66,16 +80,23 @@ async def api_generate(req: GenerateRequest):
     try:
         # Decode captured sentence audio if provided
         captured_sentence_audio: bytes | None = None
+        print(f"[Kioku] sentence_audio_b64 present: {bool(req.sentence_audio_b64)}, len={len(req.sentence_audio_b64) if req.sentence_audio_b64 else 0}")
         if req.sentence_audio_b64:
             try:
-                captured_sentence_audio = base64.b64decode(req.sentence_audio_b64)
-            except Exception:
+                raw = base64.b64decode(req.sentence_audio_b64)
+                print(f"[Kioku] decoded webm bytes: {len(raw)}")
+                captured_sentence_audio = webm_to_wav(raw)
+                print(f"[Kioku] converted to wav bytes: {len(captured_sentence_audio)}")
+            except Exception as e:
+                print(f"[Kioku] audio conversion failed: {e}")
                 captured_sentence_audio = None
 
-        # Collect unique texts; skip sentence TTS when captured audio is available
+        # Collect unique texts needing TTS; skip when captured audio covers them
         texts_needing_tts: dict[str, None] = {}
         for card in req.cards:
-            texts_needing_tts[card.japanese] = None
+            is_sentence_card = card.japanese == card.example_sentence
+            if captured_sentence_audio is None or not is_sentence_card:
+                texts_needing_tts[card.japanese] = None
             if captured_sentence_audio is None:
                 texts_needing_tts[card.example_sentence] = None
 
@@ -87,9 +108,14 @@ async def api_generate(req: GenerateRequest):
 
         audio_map: dict[str, bytes] = {}
         for card in req.cards:
+            is_sentence_card = card.japanese == card.example_sentence
             word_file = audio_filename(card.japanese, "word")
             sentence_file = audio_filename(card.example_sentence, "sentence")
-            audio_map[word_file] = audio_cache[card.japanese]
+            audio_map[word_file] = (
+                captured_sentence_audio
+                if captured_sentence_audio is not None and is_sentence_card
+                else audio_cache[card.japanese]
+            )
             audio_map[sentence_file] = (
                 captured_sentence_audio
                 if captured_sentence_audio is not None

@@ -79,25 +79,9 @@ async function checkPendingExtraction() {
 
 // Show the extraction panel with the extracted text
 async function showExtractionPanel(text) {
-  const extractionPanel = document.getElementById('extraction-panel');
-  const extractedText = document.getElementById('extracted-text');
-  const cardsContainer = document.getElementById('cards-container');
-  const status = document.getElementById('status');
-  const actions = document.getElementById('actions');
-
-  extractedText.value = text;
-  extractionPanel.style.display = 'block';
-  cardsContainer.style.display = 'none';
-  status.style.display = 'none';
-  actions.style.display = 'none';
-
-  // Focus the textarea and select all text for easy editing
-  setTimeout(() => {
-    extractedText.focus();
-    extractedText.select();
-  }, 100);
-
+  document.getElementById('extracted-text').value = text;
   await refreshAudioPreview();
+  await processExtractedText();
 }
 
 // Update the audio preview element from storage

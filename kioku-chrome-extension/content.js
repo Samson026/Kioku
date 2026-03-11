@@ -45,7 +45,8 @@ setupObserver();
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === "getSubtitle") {
-    sendResponse({ text: currentSubtitleText || null });
+    const text = getCurrentSubtitle() || currentSubtitleText || null;
+    sendResponse({ text });
   }
 
   if (msg.action === "seekToSubtitleStart") {

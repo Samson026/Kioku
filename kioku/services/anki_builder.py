@@ -3,7 +3,7 @@ import json
 import os
 import urllib.request
 
-from kioku.models import CardItem
+from kioku.models import CardItem, KanjiCard
 from kioku.utils import audio_filename
 
 DEFAULT_ANKI_CONNECT_URL = "http://localhost:8765"
@@ -24,6 +24,21 @@ BACK_TEMPLATE = (
     "<div>{{SentenceAudio}}</div>"
 )
 MODEL_CSS = ".card { font-family: 'Noto Sans JP', sans-serif; padding: 20px; }"
+
+KANJI_MODEL_NAME = "Japanese Kanji (ankiGen)"
+KANJI_FRONT_TEMPLATE = '<div style="font-size:96px;text-align:center;">{{Kanji}}</div>'
+KANJI_BACK_TEMPLATE = (
+    '{{FrontSide}}<hr id="answer">'
+    '<div style="text-align:center;margin:8px 0;">'
+    '<span style="color:#888;font-size:14px;">On\'yomi: </span>'
+    '<span style="font-size:20px;">{{Onyomi}}</span></div>'
+    '<div style="text-align:center;margin:8px 0;">'
+    '<span style="color:#888;font-size:14px;">Kun\'yomi: </span>'
+    '<span style="font-size:20px;">{{Kunyomi}}</span></div>'
+    '<div style="font-size:24px;text-align:center;margin:10px 0;">{{Meaning}}</div>'
+    '<div style="text-align:center;margin-top:15px;font-size:18px;">'
+    "<b>{{ExampleWord}}</b> ({{ExampleWordReading}})</div>"
+)
 
 
 def _anki_request(action: str, **params):
@@ -62,6 +77,26 @@ def _ensure_model(model_name: str):
                 "Name": "Card 1",
                 "Front": FRONT_TEMPLATE,
                 "Back": BACK_TEMPLATE,
+            }
+        ],
+    )
+
+
+def _ensure_kanji_model(model_name: str):
+    """Create the kanji note type if it doesn't already exist."""
+    existing = _anki_request("modelNames")
+    if model_name in existing:
+        return
+    _anki_request(
+        "createModel",
+        modelName=model_name,
+        inOrderFields=["Kanji", "Onyomi", "Kunyomi", "Meaning", "ExampleWord", "ExampleWordReading"],
+        css=MODEL_CSS,
+        cardTemplates=[
+            {
+                "Name": "Card 1",
+                "Front": KANJI_FRONT_TEMPLATE,
+                "Back": KANJI_BACK_TEMPLATE,
             }
         ],
     )
@@ -116,6 +151,35 @@ def add_cards(
                 },
                 "options": {"allowDuplicate": False},
                 "tags": ["ankiGen"],
+            },
+        )
+        added += 1
+
+    return added
+
+
+def add_kanji_cards(cards: list[KanjiCard], deck_name: str = "ankiGen") -> int:
+    """Push kanji cards into Anki via AnkiConnect. Returns count of cards added."""
+    _ensure_deck(deck_name)
+    _ensure_kanji_model(KANJI_MODEL_NAME)
+
+    added = 0
+    for card in cards:
+        _anki_request(
+            "addNote",
+            note={
+                "deckName": deck_name,
+                "modelName": KANJI_MODEL_NAME,
+                "fields": {
+                    "Kanji": card.kanji,
+                    "Onyomi": card.onyomi,
+                    "Kunyomi": card.kunyomi,
+                    "Meaning": card.meaning,
+                    "ExampleWord": card.example_word,
+                    "ExampleWordReading": card.example_word_reading,
+                },
+                "options": {"allowDuplicate": False},
+                "tags": ["ankiGen", "kanji"],
             },
         )
         added += 1

@@ -116,6 +116,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     );
     return true;
   }
+
+  if (message.action === "extractKanji") {
+    getApiUrl().then(apiUrl =>
+      fetch(`${apiUrl}/api/extract-kanji`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: message.text }),
+      })
+      .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.detail || `HTTP ${r.status}`)))
+      .then(async data => {
+        await chrome.storage.local.set({ kanjiCards: data.cards || [] });
+        sendResponse({ cards: data.cards });
+      })
+      .catch(err => sendResponse({ error: String(err) }))
+    );
+    return true;
+  }
+
+  if (message.action === "generateKanjiCards") {
+    getApiUrl().then(apiUrl =>
+      fetch(`${apiUrl}/api/generate-kanji`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cards: message.cards, deck_name: message.deckName }),
+      })
+      .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.detail || `HTTP ${r.status}`)))
+      .then(data => sendResponse({ added: data.added }))
+      .catch(err => sendResponse({ error: String(err) }))
+    );
+    return true;
+  }
 });
 
 console.log("[Kioku] Background loaded");

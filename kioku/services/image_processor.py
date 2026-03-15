@@ -2,12 +2,13 @@ import io
 import json
 import logging
 import os
+import re
 
 from groq import Groq
 from manga_ocr import MangaOcr
 from PIL import Image
 
-from kioku.models import CardItem
+from kioku.models import CardItem, KanjiCard
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,84 @@ def enrich_text(text: str) -> list[CardItem]:
             f"Input text: {text}\n"
             f"Groq response: {content}"
         )
+
+    return cards
+
+
+def extract_kanji(text: str) -> list[KanjiCard]:
+    """Extract unique kanji from text and return per-kanji info via Groq."""
+    if not text or not text.strip():
+        raise RuntimeError("No text provided for kanji extraction.")
+
+    # Pre-extract unique kanji in order of appearance
+    kanji_chars = list(dict.fromkeys(re.findall(r'[\u4e00-\u9fff]', text)))
+    if not kanji_chars:
+        return []
+
+    api_key = os.environ.get("GROQ_API_KEY", "").strip()
+    model = os.environ.get("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct").strip()
+
+    if not api_key:
+        raise RuntimeError("GROQ_API_KEY is required.")
+
+    client = Groq(api_key=api_key)
+
+    kanji_list_str = '、'.join(kanji_chars)
+    prompt = (
+        f"For each of these kanji characters: {kanji_list_str}\n"
+        "Return a JSON array. Each object must have exactly these fields:\n"
+        '- "kanji": the single kanji character\n'
+        '- "onyomi": on\'yomi reading in katakana (e.g. "ショク")\n'
+        '- "kunyomi": kun\'yomi reading in hiragana (e.g. "た.べる"), use empty string if none\n'
+        '- "meaning": primary English meaning\n'
+        '- "example_word": a common Japanese word using this kanji\n'
+        '- "example_word_reading": hiragana reading of the example word\n\n'
+        "Return ONLY valid JSON. No other text."
+    )
+
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": "You are a JSON API. Return only valid JSON."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.2,
+    )
+
+    content = (response.choices[0].message.content or "").strip()
+    logger.info("Groq kanji response: %s", content)
+    clean_text = _strip_code_fences(content)
+
+    try:
+        parsed = json.loads(clean_text)
+    except json.JSONDecodeError as err:
+        raise RuntimeError(f"Groq returned invalid JSON: {err}\nRaw: {content}") from err
+
+    if not isinstance(parsed, list):
+        raise RuntimeError(f"Groq returned non-list JSON: {content}")
+
+    cards: list[KanjiCard] = []
+    seen: set[str] = set()
+    for obj in parsed:
+        if not isinstance(obj, dict):
+            continue
+        kanji = str(obj.get("kanji", "")).strip()
+        if not kanji or kanji in seen:
+            continue
+        seen.add(kanji)
+        cards.append(
+            KanjiCard(
+                kanji=kanji,
+                onyomi=str(obj.get("onyomi", "")).strip(),
+                kunyomi=str(obj.get("kunyomi", "")).strip(),
+                meaning=str(obj.get("meaning", "")).strip(),
+                example_word=str(obj.get("example_word", "")).strip(),
+                example_word_reading=str(obj.get("example_word_reading", "")).strip(),
+            )
+        )
+
+    if not cards:
+        raise RuntimeError(f"No kanji found in text: {text}")
 
     return cards
 

@@ -1,5 +1,6 @@
 let currentCards = [];
-let cardMode = 'all'; // 'all' or 'sentence'
+let kanjiCards = [];
+let cardMode = 'all'; // 'all', 'sentence', or 'kanji'
 let theme = 'light';
 let apiUrl = 'http://localhost:8000';
 
@@ -45,7 +46,7 @@ function toggleSettings() {
 }
 
 // Set card mode
-function setCardMode(mode) {
+async function setCardMode(mode) {
   cardMode = mode;
   chrome.storage.local.set({ cardMode });
 
@@ -54,8 +55,40 @@ function setCardMode(mode) {
     btn.classList.toggle('active', btn.dataset.mode === mode);
   });
 
-  // Reload cards with filter
-  loadCards();
+  if (mode === 'kanji') {
+    await activateKanjiMode();
+  } else {
+    loadCards();
+  }
+}
+
+async function activateKanjiMode() {
+  const data = await chrome.storage.local.get(['cards']);
+  const allCards = data.cards || [];
+
+  if (allCards.length === 0) {
+    loadCards();
+    return;
+  }
+
+  const text = allCards.map(c => c.japanese + ' ' + c.example_sentence).join(' ');
+
+  const status = document.getElementById('status');
+  status.textContent = 'Extracting kanji...';
+  status.className = 'status';
+  status.style.display = 'block';
+
+  const response = await chrome.runtime.sendMessage({ action: "extractKanji", text });
+
+  if (response.error) {
+    status.textContent = `Error: ${response.error}`;
+    status.className = 'status error';
+    return;
+  }
+
+  kanjiCards = response.cards || [];
+  status.style.display = 'none';
+  renderKanjiCards();
 }
 
 // Filter cards based on mode
@@ -163,8 +196,82 @@ async function cancelExtraction() {
   loadCards();
 }
 
+function renderKanjiCards() {
+  const container = document.getElementById('cards-container');
+  const status = document.getElementById('status');
+  const actions = document.getElementById('actions');
+  const extractionPanel = document.getElementById('extraction-panel');
+
+  extractionPanel.style.display = 'none';
+  container.style.display = 'block';
+
+  if (kanjiCards.length === 0) {
+    status.textContent = 'No kanji found';
+    status.style.display = 'block';
+    container.innerHTML = '';
+    actions.style.display = 'none';
+    return;
+  }
+
+  status.style.display = 'none';
+  actions.style.display = 'flex';
+
+  container.innerHTML = kanjiCards.map((card, index) => `
+    <div class="card" data-index="${index}">
+      <button class="delete-btn" data-index="${index}">×</button>
+      <div class="field">
+        <label>Kanji:</label>
+        <input type="text" class="kanji-field" data-index="${index}" data-field="kanji" value="${escapeHtml(card.kanji)}">
+      </div>
+      <div class="field">
+        <label>On'yomi:</label>
+        <input type="text" class="kanji-field" data-index="${index}" data-field="onyomi" value="${escapeHtml(card.onyomi)}">
+      </div>
+      <div class="field">
+        <label>Kun'yomi:</label>
+        <input type="text" class="kanji-field" data-index="${index}" data-field="kunyomi" value="${escapeHtml(card.kunyomi)}">
+      </div>
+      <div class="field">
+        <label>Meaning:</label>
+        <input type="text" class="kanji-field" data-index="${index}" data-field="meaning" value="${escapeHtml(card.meaning)}">
+      </div>
+      <div class="field">
+        <label>Example Word:</label>
+        <input type="text" class="kanji-field" data-index="${index}" data-field="example_word" value="${escapeHtml(card.example_word)}">
+      </div>
+      <div class="field">
+        <label>Example Reading:</label>
+        <input type="text" class="kanji-field" data-index="${index}" data-field="example_word_reading" value="${escapeHtml(card.example_word_reading)}">
+      </div>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.kanji-field').forEach(input => {
+    input.addEventListener('input', (e) => {
+      const index = parseInt(e.target.dataset.index);
+      const field = e.target.dataset.field;
+      kanjiCards[index][field] = e.target.value;
+    });
+  });
+
+  container.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const index = parseInt(e.target.dataset.index);
+      kanjiCards.splice(index, 1);
+      renderKanjiCards();
+    });
+  });
+}
+
 // Load and display cards from storage
 async function loadCards() {
+  if (cardMode === 'kanji') {
+    const data = await chrome.storage.local.get(['kanjiCards']);
+    kanjiCards = data.kanjiCards || [];
+    renderKanjiCards();
+    return;
+  }
+
   const data = await chrome.storage.local.get(['cards', 'timestamp']);
   const allCards = data.cards || [];
   currentCards = filterCards(allCards);
@@ -255,6 +362,38 @@ async function clearCards() {
 async function addToAnki() {
   const deckName = document.getElementById('deck-name').value || 'Kioku';
   const status = document.getElementById('status');
+
+  if (cardMode === 'kanji') {
+    if (kanjiCards.length === 0) {
+      status.textContent = 'No kanji cards to add';
+      status.style.display = 'block';
+      return;
+    }
+
+    status.textContent = 'Adding kanji to Anki...';
+    status.style.display = 'block';
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: "generateKanjiCards",
+        cards: kanjiCards,
+        deckName: deckName,
+      });
+
+      if (response.error) throw new Error(response.error);
+
+      status.textContent = `Successfully added ${response.added} kanji card(s) to Anki!`;
+      status.className = 'status success';
+
+      kanjiCards = [];
+      await chrome.storage.local.remove('kanjiCards');
+      setTimeout(() => renderKanjiCards(), 1500);
+    } catch (err) {
+      status.textContent = `Error: ${err.message}`;
+      status.className = 'status error';
+    }
+    return;
+  }
 
   if (currentCards.length === 0) {
     status.textContent = 'No cards to add';

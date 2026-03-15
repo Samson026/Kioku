@@ -10,10 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from groq import AuthenticationError, APIError
 
-from kioku.models import ExtractionResult, GenerateRequest, TextExtractionRequest
-from kioku.services.anki_builder import add_cards, sync_anki
+from kioku.models import ExtractionResult, GenerateRequest, KanjiExtractionResult, KanjiGenerateRequest, TextExtractionRequest
+from kioku.services.anki_builder import add_cards, add_kanji_cards, sync_anki
 from kioku.services.audio_generator import generate_audio
-from kioku.services.image_processor import enrich_text, extract_cards
+from kioku.services.image_processor import enrich_text, extract_cards, extract_kanji
 from kioku.utils import audio_filename
 
 load_dotenv()
@@ -73,6 +73,32 @@ async def api_extract_text(req: TextExtractionRequest):
         raise HTTPException(status_code=502, detail=f"Groq API error: {err}") from err
     except RuntimeError as err:
         raise HTTPException(status_code=500, detail=str(err)) from err
+
+
+@app.post("/api/extract-kanji", response_model=KanjiExtractionResult)
+async def api_extract_kanji(req: TextExtractionRequest):
+    try:
+        cards = extract_kanji(req.text)
+        return KanjiExtractionResult(cards=cards)
+    except AuthenticationError as err:
+        raise HTTPException(status_code=401, detail="GROQ_API_KEY is invalid or not set.") from err
+    except APIError as err:
+        raise HTTPException(status_code=502, detail=f"Groq API error: {err}") from err
+    except RuntimeError as err:
+        raise HTTPException(status_code=500, detail=str(err)) from err
+
+
+@app.post("/api/generate-kanji")
+async def api_generate_kanji(req: KanjiGenerateRequest):
+    try:
+        added = add_kanji_cards(req.cards, req.deck_name)
+        try:
+            sync_anki()
+        except RuntimeError:
+            pass
+        return {"added": added}
+    except RuntimeError as err:
+        raise HTTPException(status_code=502, detail=str(err)) from err
 
 
 @app.post("/api/generate")

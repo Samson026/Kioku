@@ -21,3 +21,21 @@ class GenerateRequest(BaseModel):
 
 class TextExtractionRequest(BaseModel):
     text: str
+
+
+class KanjiCard(BaseModel):
+    kanji: str
+    onyomi: str
+    kunyomi: str
+    meaning: str
+    example_word: str
+    example_word_reading: str
+
+
+class KanjiExtractionResult(BaseModel):
+    cards: list[KanjiCard]
+
+
+class KanjiGenerateRequest(BaseModel):
+    cards: list[KanjiCard]
+    deck_name: str = "ankiGen"

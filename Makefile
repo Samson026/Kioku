@@ -95,7 +95,7 @@ docker-build:
 	docker build -t kioku:latest .
 
 docker-run:
-	docker run -d -p 8000:8000 --env-file .env \
+	docker run -d -p 80:8000 --env-file .env \
 		-v kioku-cache:/root/.cache/huggingface \
 		-e HF_HOME=/root/.cache/huggingface \
 		kioku:latest

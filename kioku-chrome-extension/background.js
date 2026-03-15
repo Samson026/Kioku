@@ -27,10 +27,10 @@ async function handleCapture() {
 
   // Seek to subtitle start, then record through to the end
   await chrome.tabs.sendMessage(tab.id, { action: "seekToSubtitleStart" }).catch(() => {});
+  chrome.tabs.sendMessage(tab.id, { action: "watchSubtitleEnd", subtitleText: text });
   await chrome.runtime.sendMessage({ action: "startRecording" });
   chrome.tabs.sendMessage(tab.id, { action: "showToast", text: "Recording…", isError: false }).catch(() => {});
   await chrome.tabs.sendMessage(tab.id, { action: "ensurePlaying" }).catch(() => {});
-  chrome.tabs.sendMessage(tab.id, { action: "watchSubtitleEnd" });
 
   console.log("[Kioku] Recording — waiting for subtitle to end...");
   await new Promise((resolve) => {

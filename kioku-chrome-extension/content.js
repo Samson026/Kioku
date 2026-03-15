@@ -24,6 +24,7 @@ function showToast(message, isError = false) {
 
 let currentSubtitleText = "";
 let subtitleStartVideoTime = null;  // video.currentTime when current subtitle appeared
+let subtitleEndWatcher = null;
 
 function setupObserver() {
   const container = document.querySelector(".player-timedtext");
@@ -34,6 +35,7 @@ function setupObserver() {
     if (text === currentSubtitleText) return;
 
     currentSubtitleText = text;
+    if (subtitleEndWatcher) subtitleEndWatcher(text);
 
     if (text) {
       const video = document.querySelector("video");
@@ -45,7 +47,7 @@ setupObserver();
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === "getSubtitle") {
-    const text = getCurrentSubtitle() || currentSubtitleText || null;
+    const text = getCurrentSubtitle() || null;
     sendResponse({ text });
   }
 
@@ -79,26 +81,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     sendResponse({ ok: true });
   }
 
-  // Watch for the current subtitle to finish, then notify background.
-  // First waits for a subtitle to appear (in case we seeked to just before it),
-  // then watches for it to change/disappear.
   if (msg.action === "watchSubtitleEnd") {
-    const waitForSubtitle = () => {
-      if (!currentSubtitleText) {
-        requestAnimationFrame(waitForSubtitle);
-        return;
+    const targetText = msg.subtitleText;
+    let seenTarget = (currentSubtitleText === targetText);
+
+    subtitleEndWatcher = (newText) => {
+      if (!seenTarget) {
+        if (newText === targetText) seenTarget = true;
+      } else if (newText !== targetText) {
+        subtitleEndWatcher = null;
+        chrome.runtime.sendMessage({ action: "subtitleEnded" });
       }
-      const activeText = currentSubtitleText;
-      const watchEnd = () => {
-        if (currentSubtitleText !== activeText) {
-          chrome.runtime.sendMessage({ action: "subtitleEnded" });
-        } else {
-          requestAnimationFrame(watchEnd);
-        }
-      };
-      requestAnimationFrame(watchEnd);
     };
-    requestAnimationFrame(waitForSubtitle);
+
     sendResponse({ ok: true });
   }
 });

@@ -127,11 +127,8 @@ def mock_voicevox(monkeypatch):
         def raise_for_status(self):
             if self.status_code >= 400:
                 import httpx
-                raise httpx.HTTPStatusError(
-                    "HTTP Error",
-                    request=Mock(),
-                    response=self
-                )
+
+                raise httpx.HTTPStatusError("HTTP Error", request=Mock(), response=self)
 
     class MockAsyncClient:
         def __init__(self, **kwargs):

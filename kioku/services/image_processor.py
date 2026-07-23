@@ -32,7 +32,9 @@ def enrich_text(text: str) -> list[CardItem]:
 
     # --- Enrich via Groq (1 API call) ---
     api_key = os.environ.get("GROQ_API_KEY", "").strip()
-    model = os.environ.get("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct").strip()
+    model = os.environ.get(
+        "GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct"
+    ).strip()
 
     if not api_key:
         raise RuntimeError("GROQ_API_KEY is required.")
@@ -80,7 +82,9 @@ def enrich_text(text: str) -> list[CardItem]:
     try:
         parsed = json.loads(clean_text)
     except json.JSONDecodeError as err:
-        raise RuntimeError(f"Groq returned invalid JSON: {err}\nRaw: {content}") from err
+        raise RuntimeError(
+            f"Groq returned invalid JSON: {err}\nRaw: {content}"
+        ) from err
 
     if not isinstance(parsed, list):
         raise RuntimeError(f"Groq returned non-list JSON: {content}")
@@ -116,9 +120,7 @@ def enrich_text(text: str) -> list[CardItem]:
 
     if not cards:
         raise RuntimeError(
-            f"No valid cards extracted.\n"
-            f"Input text: {text}\n"
-            f"Groq response: {content}"
+            f"No valid cards extracted.\nInput text: {text}\nGroq response: {content}"
         )
 
     return cards
@@ -130,19 +132,21 @@ def extract_kanji(text: str) -> list[KanjiCard]:
         raise RuntimeError("No text provided for kanji extraction.")
 
     # Pre-extract unique kanji in order of appearance
-    kanji_chars = list(dict.fromkeys(re.findall(r'[\u4e00-\u9fff]', text)))
+    kanji_chars = list(dict.fromkeys(re.findall(r"[\u4e00-\u9fff]", text)))
     if not kanji_chars:
         return []
 
     api_key = os.environ.get("GROQ_API_KEY", "").strip()
-    model = os.environ.get("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct").strip()
+    model = os.environ.get(
+        "GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct"
+    ).strip()
 
     if not api_key:
         raise RuntimeError("GROQ_API_KEY is required.")
 
     client = Groq(api_key=api_key)
 
-    kanji_list_str = '、'.join(kanji_chars)
+    kanji_list_str = "、".join(kanji_chars)
     prompt = (
         f"For each of these kanji characters: {kanji_list_str}\n"
         "Return a JSON array. Each object must have exactly these fields:\n"
@@ -158,7 +162,10 @@ def extract_kanji(text: str) -> list[KanjiCard]:
     response = client.chat.completions.create(
         model=model,
         messages=[
-            {"role": "system", "content": "You are a JSON API. Return only valid JSON."},
+            {
+                "role": "system",
+                "content": "You are a JSON API. Return only valid JSON.",
+            },
             {"role": "user", "content": prompt},
         ],
         temperature=0.2,
@@ -171,7 +178,9 @@ def extract_kanji(text: str) -> list[KanjiCard]:
     try:
         parsed = json.loads(clean_text)
     except json.JSONDecodeError as err:
-        raise RuntimeError(f"Groq returned invalid JSON: {err}\nRaw: {content}") from err
+        raise RuntimeError(
+            f"Groq returned invalid JSON: {err}\nRaw: {content}"
+        ) from err
 
     if not isinstance(parsed, list):
         raise RuntimeError(f"Groq returned non-list JSON: {content}")

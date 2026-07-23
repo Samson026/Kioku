@@ -90,7 +90,14 @@ def _ensure_kanji_model(model_name: str):
     _anki_request(
         "createModel",
         modelName=model_name,
-        inOrderFields=["Kanji", "Onyomi", "Kunyomi", "Meaning", "ExampleWord", "ExampleWordReading"],
+        inOrderFields=[
+            "Kanji",
+            "Onyomi",
+            "Kunyomi",
+            "Meaning",
+            "ExampleWord",
+            "ExampleWordReading",
+        ],
         css=MODEL_CSS,
         cardTemplates=[
             {

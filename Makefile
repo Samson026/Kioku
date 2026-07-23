@@ -73,11 +73,10 @@ test-cov:
 
 # Code quality targets
 lint:
-	flake8 kioku/ tests/
+	uv run ruff check . --fix
 
 format:
-	black kioku/ tests/
-	isort kioku/ tests/
+	uv run ruff format .
 
 type-check:
 	mypy kioku/

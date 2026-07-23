@@ -10,7 +10,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from groq import AuthenticationError, APIError
 
-from kioku.models import ExtractionResult, GenerateRequest, KanjiExtractionResult, KanjiGenerateRequest, TextExtractionRequest
+from kioku.models import (
+    ExtractionResult,
+    GenerateRequest,
+    KanjiExtractionResult,
+    KanjiGenerateRequest,
+    TextExtractionRequest,
+)
 from kioku.services.anki_builder import add_cards, add_kanji_cards, sync_anki
 from kioku.services.audio_generator import generate_audio
 from kioku.services.image_processor import enrich_text, extract_cards, extract_kanji
@@ -81,7 +87,9 @@ async def api_extract_kanji(req: TextExtractionRequest):
         cards = extract_kanji(req.text)
         return KanjiExtractionResult(cards=cards)
     except AuthenticationError as err:
-        raise HTTPException(status_code=401, detail="GROQ_API_KEY is invalid or not set.") from err
+        raise HTTPException(
+            status_code=401, detail="GROQ_API_KEY is invalid or not set."
+        ) from err
     except APIError as err:
         raise HTTPException(status_code=502, detail=f"Groq API error: {err}") from err
     except RuntimeError as err:
@@ -106,7 +114,9 @@ async def api_generate(req: GenerateRequest):
     try:
         # Decode captured sentence audio if provided
         captured_sentence_audio: bytes | None = None
-        print(f"[Kioku] sentence_audio_b64 present: {bool(req.sentence_audio_b64)}, len={len(req.sentence_audio_b64) if req.sentence_audio_b64 else 0}")
+        print(
+            f"[Kioku] sentence_audio_b64 present: {bool(req.sentence_audio_b64)}, len={len(req.sentence_audio_b64) if req.sentence_audio_b64 else 0}"
+        )
         if req.sentence_audio_b64:
             try:
                 raw = base64.b64decode(req.sentence_audio_b64)
@@ -127,9 +137,7 @@ async def api_generate(req: GenerateRequest):
                 texts_needing_tts[card.example_sentence] = None
 
         text_list = list(texts_needing_tts)
-        audio_results = await asyncio.gather(
-            *(generate_audio(t) for t in text_list)
-        )
+        audio_results = await asyncio.gather(*(generate_audio(t) for t in text_list))
         audio_cache = dict(zip(text_list, audio_results))
 
         audio_map: dict[str, bytes] = {}

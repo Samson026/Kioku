@@ -6,7 +6,11 @@ from unittest.mock import Mock
 import pytest
 
 from kioku.models import CardItem
-from kioku.services.image_processor import _strip_code_fences, enrich_text, extract_cards
+from kioku.services.image_processor import (
+    _strip_code_fences,
+    enrich_text,
+    extract_cards,
+)
 
 
 class TestStripCodeFences:
@@ -14,7 +18,7 @@ class TestStripCodeFences:
 
     def test_strip_code_fences_with_json(self):
         """Test stripping code fences from JSON."""
-        text = "```json\n{\"key\": \"value\"}\n```"
+        text = '```json\n{"key": "value"}\n```'
         result = _strip_code_fences(text)
         assert result == '{"key": "value"}'
 
@@ -182,7 +186,9 @@ class TestEnrichText:
 class TestExtractCards:
     """Tests for extract_cards function."""
 
-    def test_extract_cards_success(self, sample_image_bytes, mock_manga_ocr, mock_groq_client):
+    def test_extract_cards_success(
+        self, sample_image_bytes, mock_manga_ocr, mock_groq_client
+    ):
         """Test successful card extraction from image."""
         cards = extract_cards(sample_image_bytes, "image/png")
 
@@ -197,7 +203,9 @@ class TestExtractCards:
         with pytest.raises(RuntimeError, match="Manga OCR returned no text"):
             extract_cards(sample_image_bytes, "image/png")
 
-    def test_extract_cards_whitespace_ocr_result(self, sample_image_bytes, mock_manga_ocr):
+    def test_extract_cards_whitespace_ocr_result(
+        self, sample_image_bytes, mock_manga_ocr
+    ):
         """Test extraction with whitespace-only OCR result raises error."""
         mock_manga_ocr.return_value = "   "
 

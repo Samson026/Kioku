@@ -5,7 +5,12 @@ from unittest.mock import Mock
 
 import pytest
 
-from kioku.services.anki_builder import _anki_request, _ensure_deck, _ensure_model, add_cards
+from kioku.services.anki_builder import (
+    _anki_request,
+    _ensure_deck,
+    _ensure_model,
+    add_cards,
+)
 
 
 class TestAnkiRequest:
@@ -115,7 +120,9 @@ class TestAddCards:
         count = add_cards(sample_cards, audio_map)
         assert count == 2
 
-    def test_add_cards_stores_audio(self, sample_card_item, mock_anki_connect, monkeypatch):
+    def test_add_cards_stores_audio(
+        self, sample_card_item, mock_anki_connect, monkeypatch
+    ):
         """Test that add_cards stores audio files."""
         audio_stored = []
 

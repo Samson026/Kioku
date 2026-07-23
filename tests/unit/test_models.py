@@ -3,7 +3,12 @@
 import pytest
 from pydantic import ValidationError
 
-from kioku.models import CardItem, ExtractionResult, GenerateRequest, TextExtractionRequest
+from kioku.models import (
+    CardItem,
+    ExtractionResult,
+    GenerateRequest,
+    TextExtractionRequest,
+)
 
 
 class TestCardItem:

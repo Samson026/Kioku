@@ -9,7 +9,9 @@ import pytest
 class TestExtractEndpoint:
     """Tests for POST /api/extract endpoint."""
 
-    def test_extract_success(self, test_client, sample_image_bytes, mock_manga_ocr, mock_groq_client):
+    def test_extract_success(
+        self, test_client, sample_image_bytes, mock_manga_ocr, mock_groq_client
+    ):
         """Test successful image extraction."""
         files = {"file": ("test.png", io.BytesIO(sample_image_bytes), "image/png")}
         response = test_client.post("/api/extract", files=files)
@@ -27,7 +29,9 @@ class TestExtractEndpoint:
         response = test_client.post("/api/extract")
         assert response.status_code == 422
 
-    def test_extract_invalid_api_key(self, test_client, sample_image_bytes, mock_manga_ocr, monkeypatch):
+    def test_extract_invalid_api_key(
+        self, test_client, sample_image_bytes, mock_manga_ocr, monkeypatch
+    ):
         """Test extraction with invalid API key returns 401."""
         from groq import AuthenticationError
 
@@ -35,17 +39,32 @@ class TestExtractEndpoint:
             raise AuthenticationError("Invalid API key")
 
         # Mock Groq to raise AuthenticationError
-        mock_client = type('MockClient', (), {})()
+        mock_client = type("MockClient", (), {})()
 
-        mock_request = type('MockRequest', (), {'method': 'POST', 'url': 'https://api.groq.com', 'headers': {}})()
-        mock_response = type('MockResponse', (), {'status_code': 401, 'headers': {}, 'text': 'Unauthorized', 'request': mock_request})()
-        auth_error = AuthenticationError("Invalid API key", response=mock_response, body=None)
+        mock_request = type(
+            "MockRequest",
+            (),
+            {"method": "POST", "url": "https://api.groq.com", "headers": {}},
+        )()
+        mock_response = type(
+            "MockResponse",
+            (),
+            {
+                "status_code": 401,
+                "headers": {},
+                "text": "Unauthorized",
+                "request": mock_request,
+            },
+        )()
+        auth_error = AuthenticationError(
+            "Invalid API key", response=mock_response, body=None
+        )
 
         def mock_create(*args, **kwargs):
             raise auth_error
 
-        mock_client.chat = type('MockChat', (), {})()
-        mock_client.chat.completions = type('MockCompletions', (), {})()
+        mock_client.chat = type("MockChat", (), {})()
+        mock_client.chat.completions = type("MockCompletions", (), {})()
         mock_client.chat.completions.create = mock_create
 
         def mock_groq_class(api_key):
@@ -59,7 +78,9 @@ class TestExtractEndpoint:
         assert response.status_code == 401
         assert "GROQ_API_KEY" in response.json()["detail"]
 
-    def test_extract_empty_ocr_result(self, test_client, sample_image_bytes, mock_manga_ocr):
+    def test_extract_empty_ocr_result(
+        self, test_client, sample_image_bytes, mock_manga_ocr
+    ):
         """Test extraction with empty OCR result returns 500."""
         mock_manga_ocr.return_value = ""
 
@@ -112,7 +133,9 @@ class TestGenerateEndpoint:
     """Tests for POST /api/generate endpoint."""
 
     @pytest.mark.asyncio
-    async def test_generate_success(self, test_client, sample_cards, mock_voicevox, mock_anki_connect):
+    async def test_generate_success(
+        self, test_client, sample_cards, mock_voicevox, mock_anki_connect
+    ):
         """Test successful audio generation and Anki card creation."""
         payload = {
             "cards": [card.model_dump() for card in sample_cards],
@@ -126,7 +149,9 @@ class TestGenerateEndpoint:
         assert data["added"] == 2
 
     @pytest.mark.asyncio
-    async def test_generate_empty_cards(self, test_client, mock_voicevox, mock_anki_connect):
+    async def test_generate_empty_cards(
+        self, test_client, mock_voicevox, mock_anki_connect
+    ):
         """Test generation with empty cards list."""
         payload = {"cards": [], "deck_name": "TestDeck"}
         response = test_client.post("/api/generate", json=payload)
@@ -136,7 +161,9 @@ class TestGenerateEndpoint:
         assert data["added"] == 0
 
     @pytest.mark.asyncio
-    async def test_generate_default_deck_name(self, test_client, sample_cards, mock_voicevox, mock_anki_connect):
+    async def test_generate_default_deck_name(
+        self, test_client, sample_cards, mock_voicevox, mock_anki_connect
+    ):
         """Test generation uses default deck name when not provided."""
         payload = {"cards": [card.model_dump() for card in sample_cards]}
         response = test_client.post("/api/generate", json=payload)
@@ -146,7 +173,9 @@ class TestGenerateEndpoint:
         assert "added" in data
 
     @pytest.mark.asyncio
-    async def test_generate_voicevox_failure(self, test_client, sample_cards, monkeypatch):
+    async def test_generate_voicevox_failure(
+        self, test_client, sample_cards, monkeypatch
+    ):
         """Test generation handles VOICEVOX failures."""
 
         class MockAsyncClientFail:
@@ -161,6 +190,7 @@ class TestGenerateEndpoint:
 
             async def post(self, url, **kwargs):
                 import httpx
+
                 raise httpx.ConnectError("Connection refused")
 
         monkeypatch.setattr("httpx.AsyncClient", MockAsyncClientFail)
@@ -172,11 +202,14 @@ class TestGenerateEndpoint:
         assert "VOICEVOX request failed" in response.json()["detail"]
 
     @pytest.mark.asyncio
-    async def test_generate_anki_connect_failure(self, test_client, sample_cards, mock_voicevox, monkeypatch):
+    async def test_generate_anki_connect_failure(
+        self, test_client, sample_cards, mock_voicevox, monkeypatch
+    ):
         """Test generation handles AnkiConnect failures."""
 
         def mock_urlopen_error(request):
             from unittest.mock import Mock
+
             mock_response = Mock()
             mock_response.read.return_value = json.dumps(
                 {"result": None, "error": "Failed to connect to Anki"}
@@ -194,7 +227,9 @@ class TestGenerateEndpoint:
         assert "AnkiConnect error" in response.json()["detail"]
 
     @pytest.mark.asyncio
-    async def test_generate_deduplicates_audio(self, test_client, mock_voicevox, mock_anki_connect):
+    async def test_generate_deduplicates_audio(
+        self, test_client, mock_voicevox, mock_anki_connect
+    ):
         """Test that generate endpoint deduplicates audio generation for same text."""
         # Create cards with duplicate japanese text
         cards = [

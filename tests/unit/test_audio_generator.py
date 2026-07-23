@@ -64,9 +64,7 @@ class TestGenerateAudio:
 
             def raise_for_status(self):
                 raise httpx.HTTPStatusError(
-                    "Server error",
-                    request=Mock(),
-                    response=self
+                    "Server error", request=Mock(), response=self
                 )
 
         class MockAsyncClientError:

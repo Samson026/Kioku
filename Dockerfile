@@ -1,32 +1,27 @@
-# Build stage
-FROM python:3.12-slim as builder
+FROM python:3.13-slim
 
-WORKDIR /build
+COPY --from=ghcr.io/astral-sh/uv:0.11.30 /uv /uvx /bin/
 
-# Copy only what's needed for building the wheel
-COPY setup.py pyproject.toml requirements.txt ./
-COPY kioku/ ./kioku/
-
-# Build the wheel inside the container
-RUN pip wheel --no-deps -w /build/dist .
-
-# Runtime stage
-FROM python:3.12-slim
-
-# Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 libglib2.0-0 ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the wheel from the build stage
-COPY --from=builder /build/dist/*.whl /tmp/
+WORKDIR /app
 
-# Install the wheel
-RUN pip install --no-cache-dir /tmp/*.whl && rm /tmp/*.whl
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=0 \
+    PATH="/app/.venv/bin:$PATH" \
+    HOST=0.0.0.0 \
+    PORT=8000
 
-ENV HOST=0.0.0.0
-ENV PORT=8000
+COPY pyproject.toml uv.lock ./
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --no-install-project
+
+COPY kioku/ ./kioku/
 
 EXPOSE 8000
 
-CMD ["kioku"]
+CMD ["python", "-m", "kioku"]

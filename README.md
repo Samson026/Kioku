@@ -2,25 +2,25 @@
 
 Generate Japanese Anki cards from an image:
 - Extract Japanese text with Manga OCR
-- Enrich reading/meaning/example fields with Groq
+- Enrich reading/meaning/example fields with Claude
 - Generate Japanese audio with Edge TTS
 - Push notes directly into Anki via AnkiConnect
 
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/)
-- A [Groq API key](https://console.groq.com/keys)
+- An [Anthropic API key](https://console.anthropic.com/settings/keys)
 - (Optional) [Anki](https://apps.ankiweb.net/) with the [AnkiConnect](https://ankiweb.net/shared/info/2055492159) add-on installed
 
 ## Quick Start
 
-1. Copy the example env file and add your Groq API key:
+1. Copy the example env file and add your Anthropic API key:
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and set `GROQ_API_KEY` to your key.
+Edit `.env` and set `CLAUDE_API_KEY` to your key.
 
 2. Build and run with Docker:
 
@@ -45,8 +45,7 @@ docker run -p 8000:8000 --env-file .env kioku:latest
 
 Set the following in `.env`:
 
-- `GROQ_API_KEY` (required)
-- `GROQ_MODEL` (optional, default: `meta-llama/llama-4-scout-17b-16e-instruct`)
+- `CLAUDE_API_KEY` (required)
 - `ANKI_CONNECT_URL` (optional, default: `http://localhost:8765`)
 
 ## AnkiConnect Setup
@@ -100,7 +99,7 @@ If you prefer not to use Docker, you can install Kioku directly:
 pip install kioku-<version>.whl
 ```
 
-Create a `.env` file with your `GROQ_API_KEY`, then run:
+Create a `.env` file with your `CLAUDE_API_KEY`, then run:
 
 ```bash
 kioku

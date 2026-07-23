@@ -2,15 +2,18 @@
 
 import io
 import json
+from unittest.mock import Mock
 
+import httpx
 import pytest
+from anthropic import APIError, AuthenticationError
 
 
 class TestExtractEndpoint:
     """Tests for POST /api/extract endpoint."""
 
     def test_extract_success(
-        self, test_client, sample_image_bytes, mock_manga_ocr, mock_groq_client
+        self, test_client, sample_image_bytes, mock_manga_ocr, mock_claude_client
     ):
         """Test successful image extraction."""
         files = {"file": ("test.png", io.BytesIO(sample_image_bytes), "image/png")}
@@ -29,55 +32,6 @@ class TestExtractEndpoint:
         response = test_client.post("/api/extract")
         assert response.status_code == 422
 
-    def test_extract_invalid_api_key(
-        self, test_client, sample_image_bytes, mock_manga_ocr, monkeypatch
-    ):
-        """Test extraction with invalid API key returns 401."""
-        from groq import AuthenticationError
-
-        def mock_groq_init_fail(api_key):
-            raise AuthenticationError("Invalid API key")
-
-        # Mock Groq to raise AuthenticationError
-        mock_client = type("MockClient", (), {})()
-
-        mock_request = type(
-            "MockRequest",
-            (),
-            {"method": "POST", "url": "https://api.groq.com", "headers": {}},
-        )()
-        mock_response = type(
-            "MockResponse",
-            (),
-            {
-                "status_code": 401,
-                "headers": {},
-                "text": "Unauthorized",
-                "request": mock_request,
-            },
-        )()
-        auth_error = AuthenticationError(
-            "Invalid API key", response=mock_response, body=None
-        )
-
-        def mock_create(*args, **kwargs):
-            raise auth_error
-
-        mock_client.chat = type("MockChat", (), {})()
-        mock_client.chat.completions = type("MockCompletions", (), {})()
-        mock_client.chat.completions.create = mock_create
-
-        def mock_groq_class(api_key):
-            raise auth_error
-
-        monkeypatch.setattr("kioku.services.image_processor.Groq", mock_groq_class)
-
-        files = {"file": ("test.png", io.BytesIO(sample_image_bytes), "image/png")}
-        response = test_client.post("/api/extract", files=files)
-
-        assert response.status_code == 401
-        assert "GROQ_API_KEY" in response.json()["detail"]
-
     def test_extract_empty_ocr_result(
         self, test_client, sample_image_bytes, mock_manga_ocr
     ):
@@ -94,7 +48,7 @@ class TestExtractEndpoint:
 class TestExtractTextEndpoint:
     """Tests for POST /api/extract-text endpoint."""
 
-    def test_extract_text_success(self, test_client, mock_groq_client):
+    def test_extract_text_success(self, test_client, mock_claude_client):
         """Test successful text extraction."""
         payload = {"text": "こんにちは"}
         response = test_client.post("/api/extract-text", json=payload)
@@ -127,6 +81,88 @@ class TestExtractTextEndpoint:
 
         assert response.status_code == 500
         assert "No text provided" in response.json()["detail"]
+
+
+class TestExtractKanjiEndpoint:
+    """Tests for POST /api/extract-kanji endpoint."""
+
+    def test_extract_kanji_success(self, test_client, mock_claude_client):
+        mock_claude_client.messages.create.return_value.content[0].text = json.dumps(
+            [
+                {
+                    "kanji": "日",
+                    "onyomi": "ニチ",
+                    "kunyomi": "ひ",
+                    "meaning": "day; sun",
+                    "example_word": "日本",
+                    "example_word_reading": "にほん",
+                }
+            ]
+        )
+
+        response = test_client.post("/api/extract-kanji", json={"text": "日本"})
+
+        assert response.status_code == 200
+        assert response.json()["cards"][0]["kanji"] == "日"
+
+
+@pytest.mark.parametrize(
+    ("path", "service_name"),
+    [
+        ("/api/extract", "extract_cards"),
+        ("/api/extract-text", "enrich_text"),
+        ("/api/extract-kanji", "extract_kanji"),
+    ],
+)
+def test_claude_api_errors_return_502(
+    path,
+    service_name,
+    test_client,
+    sample_image_bytes,
+    monkeypatch,
+):
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    error = APIError("Anthropic unavailable", request, body=None)
+    monkeypatch.setattr(f"kioku.main.{service_name}", Mock(side_effect=error))
+
+    if path == "/api/extract":
+        files = {"file": ("test.png", io.BytesIO(sample_image_bytes), "image/png")}
+        response = test_client.post(path, files=files)
+    else:
+        response = test_client.post(path, json={"text": "日本"})
+
+    assert response.status_code == 502
+    assert "Claude" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    ("path", "service_name"),
+    [
+        ("/api/extract", "extract_cards"),
+        ("/api/extract-text", "enrich_text"),
+        ("/api/extract-kanji", "extract_kanji"),
+    ],
+)
+def test_claude_authentication_errors_return_401(
+    path,
+    service_name,
+    test_client,
+    sample_image_bytes,
+    monkeypatch,
+):
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    response = httpx.Response(401, request=request)
+    error = AuthenticationError("Invalid API key", response=response, body=None)
+    monkeypatch.setattr(f"kioku.main.{service_name}", Mock(side_effect=error))
+
+    if path == "/api/extract":
+        files = {"file": ("test.png", io.BytesIO(sample_image_bytes), "image/png")}
+        response = test_client.post(path, files=files)
+    else:
+        response = test_client.post(path, json={"text": "日本"})
+
+    assert response.status_code == 401
+    assert "CLAUDE_API_KEY" in response.json()["detail"]
 
 
 class TestGenerateEndpoint:

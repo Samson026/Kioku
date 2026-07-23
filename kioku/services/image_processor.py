@@ -25,13 +25,13 @@ def _strip_code_fences(text: str) -> str:
 
 
 def enrich_text(text: str) -> list[CardItem]:
-    """Enrich Japanese text with readings, meanings, and examples via Groq."""
+    """Enrich Japanese text with readings, meanings, and examples via Claude."""
     if not text or not text.strip():
         raise RuntimeError("No text provided for enrichment.")
 
     logger.info("Enriching text: %s", text)
 
-    # --- Enrich via Groq (1 API call) ---
+    # --- Enrich via Claude (1 API call) ---
     api_key = os.environ.get("CLAUDE_API_KEY", "").strip()
 
     if not api_key:
@@ -92,7 +92,7 @@ def enrich_text(text: str) -> list[CardItem]:
         ) from err
 
     if not isinstance(parsed, list):
-        raise RuntimeError(f"Groq returned non-list JSON: {content}")
+        raise RuntimeError(f"Claude returned non-list JSON: {content}")
 
     cards: list[CardItem] = []
     seen: set[str] = set()
@@ -125,14 +125,14 @@ def enrich_text(text: str) -> list[CardItem]:
 
     if not cards:
         raise RuntimeError(
-            f"No valid cards extracted.\nInput text: {text}\nGroq response: {content}"
+            f"No valid cards extracted.\nInput text: {text}\nClaude response: {content}"
         )
 
     return cards
 
 
 def extract_kanji(text: str) -> list[KanjiCard]:
-    """Extract unique kanji from text and return per-kanji info via Groq."""
+    """Extract unique kanji from text and return per-kanji info via Claude."""
     if not text or not text.strip():
         raise RuntimeError("No text provided for kanji extraction.")
 
@@ -141,54 +141,52 @@ def extract_kanji(text: str) -> list[KanjiCard]:
     if not kanji_chars:
         return []
 
-    api_key = os.environ.get("GROQ_API_KEY", "").strip()
-    model = os.environ.get(
-        "GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct"
-    ).strip()
+    api_key = os.environ.get("CLAUDE_API_KEY", "").strip()
 
     if not api_key:
-        raise RuntimeError("GROQ_API_KEY is required.")
+        raise RuntimeError("CLAUDE_API_KEY is required.")
 
-    client = Groq(api_key=api_key)
+    client = Anthropic(api_key=api_key)
 
     kanji_list_str = "、".join(kanji_chars)
-    prompt = (
-        f"For each of these kanji characters: {kanji_list_str}\n"
-        "Return a JSON array. Each object must have exactly these fields:\n"
-        '- "kanji": the single kanji character\n'
-        '- "onyomi": on\'yomi reading in katakana (e.g. "ショク")\n'
-        '- "kunyomi": kun\'yomi reading in hiragana (e.g. "た.べる"), use empty string if none\n'
-        '- "meaning": primary English meaning\n'
-        '- "example_word": a common Japanese word using this kanji\n'
-        '- "example_word_reading": hiragana reading of the example word\n\n'
-        "Return ONLY valid JSON. No other text."
-    )
+    system_prompt = """
+        You process kanji characters into structured study entries.
 
-    response = client.chat.completions.create(
-        model=model,
+        Return a JSON array with one object for each requested kanji, preserving
+        the requested order. Every object must contain exactly these fields:
+        - "kanji": The single kanji character.
+        - "onyomi": The on'yomi reading in katakana (for example, "ショク").
+        - "kunyomi": The kun'yomi reading in hiragana (for example, "た.べる"), or an empty string if none exists.
+        - "meaning": The primary English meaning.
+        - "example_word": A common Japanese word using the kanji.
+        - "example_word_reading": The hiragana reading of the example word.
+
+        Return only valid JSON. Do not include Markdown, code fences,
+        explanations, or any other text.
+    """.strip()
+
+    response = client.messages.create(
+        model=CLAUDE_MODEL,
+        system=system_prompt,
         messages=[
-            {
-                "role": "system",
-                "content": "You are a JSON API. Return only valid JSON.",
-            },
-            {"role": "user", "content": prompt},
+            {"role": "user", "content": kanji_list_str},
         ],
-        temperature=0.2,
+        max_tokens=1024,
     )
 
-    content = (response.choices[0].message.content or "").strip()
-    logger.info("Groq kanji response: %s", content)
+    content = response.content[0].text
+    logger.info("Claude kanji response: %s", content)
     clean_text = _strip_code_fences(content)
 
     try:
         parsed = json.loads(clean_text)
     except json.JSONDecodeError as err:
         raise RuntimeError(
-            f"Groq returned invalid JSON: {err}\nRaw: {content}"
+            f"Claude returned invalid JSON: {err}\nRaw: {content}"
         ) from err
 
     if not isinstance(parsed, list):
-        raise RuntimeError(f"Groq returned non-list JSON: {content}")
+        raise RuntimeError(f"Claude returned non-list JSON: {content}")
 
     cards: list[KanjiCard] = []
     seen: set[str] = set()
@@ -217,7 +215,7 @@ def extract_kanji(text: str) -> list[KanjiCard]:
 
 
 def extract_cards(image_bytes: bytes, mime_type: str) -> list[CardItem]:
-    """OCR with Manga OCR, then enrich with a single Groq call."""
+    """OCR with Manga OCR, then enrich with a single Claude call."""
     # --- OCR via Manga OCR (local, no API call) ---
     image = Image.open(io.BytesIO(image_bytes))
     ocr_text = _mocr(image)

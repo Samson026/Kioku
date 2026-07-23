@@ -14,8 +14,7 @@ from kioku.models import CardItem
 @pytest.fixture(autouse=True)
 def set_test_env(monkeypatch):
     """Set test environment variables for all tests."""
-    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
-    monkeypatch.setenv("GROQ_MODEL", "test-model")
+    monkeypatch.setenv("CLAUDE_API_KEY", "test-claude-key")
     monkeypatch.setenv("ANKI_CONNECT_URL", "http://test-anki:8765")
     monkeypatch.setenv("VOICEVOX_URL", "http://test-voicevox:50021")
     monkeypatch.setenv("VOICEVOX_SPEAKER", "0")
@@ -65,36 +64,33 @@ def sample_image_bytes():
 
 
 @pytest.fixture
-def mock_groq_client(monkeypatch):
-    """Mock Groq API client."""
+def mock_claude_client(monkeypatch):
+    """Mock Anthropic API client."""
     mock_response = Mock()
-    mock_response.choices = [
+    mock_response.content = [
         Mock(
-            message=Mock(
-                content=json.dumps(
-                    [
-                        {
-                            "japanese": "こんにちは",
-                            "reading": "こんにちは",
-                            "meaning": "Hello",
-                            "example_sentence": "こんにちは、元気ですか？",
-                            "example_translation": "Hello, how are you?",
-                        }
-                    ]
-                )
+            type="text",
+            text=json.dumps(
+                [
+                    {
+                        "japanese": "こんにちは",
+                        "reading": "こんにちは",
+                        "meaning": "Hello",
+                        "example_sentence": "こんにちは、元気ですか？",
+                        "example_translation": "Hello, how are you?",
+                    }
+                ]
             )
         )
     ]
 
     mock_client = Mock()
-    mock_client.chat.completions.create.return_value = mock_response
+    mock_client.messages.create.return_value = mock_response
 
-    def mock_groq_init(self, api_key):
-        return None
-
-    # Mock Groq class
-    mock_groq_class = Mock(return_value=mock_client)
-    monkeypatch.setattr("kioku.services.image_processor.Groq", mock_groq_class)
+    mock_anthropic_class = Mock(return_value=mock_client)
+    monkeypatch.setattr(
+        "kioku.services.image_processor.Anthropic", mock_anthropic_class
+    )
 
     return mock_client
 

@@ -76,7 +76,7 @@ async def api_extract_text(req: TextExtractionRequest):
             detail="CLAUDE_API_KEY is invalid or not set. Please check your .env file.",
         ) from err
     except APIError as err:
-        raise HTTPException(status_code=502, detail=f"Claude error: {err}") from err
+        raise HTTPException(status_code=502, detail=f"Claude API error: {err}") from err
     except RuntimeError as err:
         raise HTTPException(status_code=500, detail=str(err)) from err
 
@@ -88,10 +88,11 @@ async def api_extract_kanji(req: TextExtractionRequest):
         return KanjiExtractionResult(cards=cards)
     except AuthenticationError as err:
         raise HTTPException(
-            status_code=401, detail="GROQ_API_KEY is invalid or not set."
+            status_code=401,
+            detail="CLAUDE_API_KEY is invalid or not set. Please check your .env file.",
         ) from err
     except APIError as err:
-        raise HTTPException(status_code=502, detail=f"Groq API error: {err}") from err
+        raise HTTPException(status_code=502, detail=f"Claude API error: {err}") from err
     except RuntimeError as err:
         raise HTTPException(status_code=500, detail=str(err)) from err
 

@@ -1,6 +1,6 @@
 fastapi
 uvicorn
-groq
+anthropic>=0.118.0
 manga-ocr
 Pillow
 httpx

@@ -414,10 +414,10 @@ createApp({
           const errorData = await resp.json().catch(() => ({}));
           const detail = errorData.detail || `Server error: ${resp.status}`;
 
-          if (detail.includes("GROQ_API_KEY")) {
+          if (detail.includes("CLAUDE_API_KEY")) {
             this.extractStatus = {
               type: "error",
-              message: "⚠️ GROQ_API_KEY is not configured. Please set it in your .env file."
+              message: "⚠️ CLAUDE_API_KEY is not configured. Please set it in your .env file."
             };
           } else {
             this.extractStatus = { type: "error", message: `Extraction failed: ${detail}` };
@@ -452,10 +452,10 @@ createApp({
           const errorData = await resp.json().catch(() => ({}));
           const detail = errorData.detail || `Server error: ${resp.status}`;
 
-          if (detail.includes("GROQ_API_KEY")) {
+          if (detail.includes("CLAUDE_API_KEY")) {
             this.extractStatus = {
               type: "error",
-              message: "⚠️ GROQ_API_KEY is not configured. Please set it in your .env file."
+              message: "⚠️ CLAUDE_API_KEY is not configured. Please set it in your .env file."
             };
           } else {
             this.extractStatus = { type: "error", message: `Extraction failed: ${detail}` };

@@ -4,11 +4,12 @@ import logging
 import os
 import re
 
-from groq import Groq
+from anthropic import Anthropic
 from manga_ocr import MangaOcr
 from PIL import Image
 
 from kioku.models import CardItem, KanjiCard
+from kioku.constants import CLAUDE_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -31,59 +32,63 @@ def enrich_text(text: str) -> list[CardItem]:
     logger.info("Enriching text: %s", text)
 
     # --- Enrich via Groq (1 API call) ---
-    api_key = os.environ.get("GROQ_API_KEY", "").strip()
-    model = os.environ.get(
-        "GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct"
-    ).strip()
+    api_key = os.environ.get("CLAUDE_API_KEY", "").strip()
 
     if not api_key:
-        raise RuntimeError("GROQ_API_KEY is required.")
+        raise RuntimeError("CLAUDE_API_KEY is required.")
 
-    client = Groq(api_key=api_key)
+    client = Anthropic(api_key=api_key)
 
-    prompt = (
-        "I will give you Japanese text. "
-        "For each sentence or phrase, produce:\n"
-        "1. One entry for the complete sentence/phrase.\n"
-        "2. One entry for each individual vocabulary word in that sentence. "
-        "Only include content words (nouns, verbs, adjectives, adverbs). "
-        "Do NOT include particles (は、が、を、に、で、と、の、も、へ、から、まで、より、か、よ、ね、な、けど、ば、て、たり), "
-        "conjunctions, or punctuation.\n\n"
-        "Return a JSON array. Each entry must have exactly these fields:\n"
-        '- "japanese": the text (full sentence OR single word)\n'
-        '- "reading": full hiragana reading\n'
-        '- "meaning": English meaning (for sentences give the overall meaning, for words give the dictionary meaning)\n'
-        '- "example_sentence": for sentences use the sentence itself; '
-        "for words use the sentence it came from; "
-        "for standalone words that didn't come from a sentence, create a natural example sentence using the word\n"
-        '- "example_translation": English translation of the example_sentence\n\n'
-        "IMPORTANT: Every field must be filled in. Never leave any field empty. "
-        "Even if the text is incomplete or partial, provide your best translation.\n\n"
-        "Return ONLY valid JSON. No other text.\n\n"
-        f"Japanese text:\n{text}"
-    )
+    system_prompt = """
+        You process Japanese text into structured study entries.
 
-    response = client.chat.completions.create(
-        model=model,
+        For each sentence or phrase, produce:
+        1. One entry for the complete sentence or phrase.
+        2. One entry for each individual vocabulary word in that sentence.
+
+        For vocabulary entries, include only content words:
+        - Nouns
+        - Verbs
+        - Adjectives
+        - Adverbs
+
+        Do not create entries for:
+        - Particles, including は、が、を、に、で、と、の、も、へ、から、まで、より、か、よ、ね、な、けど、ば、て、たり
+        - Conjunctions
+        - Punctuation
+
+        Return a JSON array. Every entry must contain exactly these fields:
+        - "japanese": The complete sentence, phrase, or individual vocabulary word.
+        - "reading": The full hiragana reading.
+        - "meaning": The overall English meaning for sentences, or dictionary meaning for words.
+        - "example_sentence": For sentence entries, use the original sentence. For word entries, use the sentence the word came from. For standalone words, create a natural Japanese example sentence.
+        - "example_translation": The English translation of "example_sentence".
+
+        Every field must be filled in. Never return an empty field.
+
+        If the Japanese text is incomplete or fragmentary, provide the best possible interpretation and translation.
+
+        Return only valid JSON. Do not include Markdown, code fences, explanations, or any other text.
+    """.strip()
+
+    response = client.messages.create(
+        model=CLAUDE_MODEL,
+        system=system_prompt,
         messages=[
-            {
-                "role": "system",
-                "content": "You are a JSON API. Return only valid JSON.",
-            },
-            {"role": "user", "content": prompt},
+            {"role": "user", "content": text},
         ],
-        temperature=0.2,
+        max_tokens=1024,
     )
 
-    content = (response.choices[0].message.content or "").strip()
-    logger.info("Groq raw response: %s", content)
+    content = response.content[0].text
+    logger.info("claude raw response: %s", content)
     clean_text = _strip_code_fences(content)
 
     try:
         parsed = json.loads(clean_text)
     except json.JSONDecodeError as err:
         raise RuntimeError(
-            f"Groq returned invalid JSON: {err}\nRaw: {content}"
+            f"Claude returned invalid JSON: {err}\nRaw: {content}"
         ) from err
 
     if not isinstance(parsed, list):

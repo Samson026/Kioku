@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from groq import AuthenticationError, APIError
+from anthropic import AuthenticationError, APIError
 
 from kioku.models import (
     ExtractionResult,
@@ -57,10 +57,10 @@ async def api_extract(file: UploadFile = File(...)):
     except AuthenticationError as err:
         raise HTTPException(
             status_code=401,
-            detail="GROQ_API_KEY is invalid or not set. Please check your .env file.",
+            detail="CLAUDE_API_KEY is invalid or not set. Please check your .env file.",
         ) from err
     except APIError as err:
-        raise HTTPException(status_code=502, detail=f"Groq API error: {err}") from err
+        raise HTTPException(status_code=502, detail=f"Claude API error: {err}") from err
     except RuntimeError as err:
         raise HTTPException(status_code=500, detail=str(err)) from err
 
@@ -73,10 +73,10 @@ async def api_extract_text(req: TextExtractionRequest):
     except AuthenticationError as err:
         raise HTTPException(
             status_code=401,
-            detail="GROQ_API_KEY is invalid or not set. Please check your .env file.",
+            detail="CLAUDE_API_KEY is invalid or not set. Please check your .env file.",
         ) from err
     except APIError as err:
-        raise HTTPException(status_code=502, detail=f"Groq API error: {err}") from err
+        raise HTTPException(status_code=502, detail=f"Claude error: {err}") from err
     except RuntimeError as err:
         raise HTTPException(status_code=500, detail=str(err)) from err
 
